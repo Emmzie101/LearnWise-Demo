@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-montserrat: 'Montserrat', system-ui, -apple-system, sans-serif;
+    --font-poppins: 'Poppins', system-ui, -apple-system, sans-serif;
+  }
+  
+  body {
+    font-family: var(--font-inter);
+    color: #071A3A;
+    background-color: #F7FAFF;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: var(--font-montserrat);
+    letter-spacing: -0.02em;
+  }
+
+  .font-poppins {
+    font-family: var(--font-poppins);
+  }
+}
+
+/* Glassmorphism card utilities */
+.glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(23, 105, 255, 0.12);
+}
+
+.glass-card-dark {
+  background: rgba(7, 26, 58, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Subtle neural pattern background utility */
+.bg-neural-pattern {
+  background-image: radial-gradient(circle at 1px 1px, rgba(18, 75, 206, 0.05) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbar for sleek dashboard experience */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(18, 75, 206, 0.18);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(18, 75, 206, 0.35);
+}
+
+/* Smooth micro-interactions */
+.tap-effect {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tap-effect:active {
+  transform: scale(0.985);
+}

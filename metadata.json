@@ -1,0 +1,6 @@
+{
+  "name": "LearnWise",
+  "description": "Personalized Learning Operating System (PLSFR+) for Nigerian and global learners — diagnose, personalize, plan, retrieve, apply, reinforce, and adapt.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
