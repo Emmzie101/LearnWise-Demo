@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLearner } from '../context/LearnerContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   Menu, 
   Target, 
@@ -23,6 +24,7 @@ interface TopBarProps {
   onOpenMobileSidebar: () => void;
   onOpenSettings: () => void;
   onStartWalkthrough?: () => void;
+  onOpenAuthModal?: (mode?: 'signin' | 'signup') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -31,8 +33,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenMobileSidebar,
   onOpenSettings,
   onStartWalkthrough,
+  onOpenAuthModal,
 }) => {
   const { profile, isDemoAccount, goals, selectedGoalId, metrics, logout } = useLearner();
+  const { user } = useAuth();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   const selectedGoal = goals.find(g => g.id === selectedGoalId) || goals[0];
@@ -61,8 +65,26 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="sticky top-0 z-30 w-full bg-white/90 backdrop-blur-md border-b border-[rgba(24,60,110,0.07)]">
-      {/* Top micro banner for demo mode notice */}
-      {isDemoAccount && (
+      {/* Top micro banner for demo or authenticated notice */}
+      {user ? (
+        <div className="bg-[#10233F] text-white text-[11px] px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#176FF5]" />
+            <span>
+              Authenticated Account: <strong className="text-white font-semibold">{user.email}</strong>
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              logout();
+              onNavigate('/');
+            }}
+            className="text-gray-300 hover:text-white underline text-[11px] cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </div>
+      ) : isDemoAccount ? (
         <div className="bg-[#10233F] text-white text-[11px] px-4 py-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#20B26B] animate-pulse" />
@@ -70,14 +92,24 @@ export const TopBar: React.FC<TopBarProps> = ({
               Sample Learner: <strong className="text-white font-semibold">Adaeze (UNILAG Computer Science)</strong>
             </span>
           </div>
-          <button
-            onClick={onOpenSettings}
-            className="text-gray-300 hover:text-white underline text-[11px] cursor-pointer"
-          >
-            Change / Reset Demo
-          </button>
+          <div className="flex items-center gap-3">
+            {onOpenAuthModal && (
+              <button
+                onClick={() => onOpenAuthModal('signin')}
+                className="text-[#96C0FF] hover:text-white font-medium text-[11px] cursor-pointer"
+              >
+                Sign In
+              </button>
+            )}
+            <button
+              onClick={onOpenSettings}
+              className="text-gray-300 hover:text-white underline text-[11px] cursor-pointer"
+            >
+              Change / Reset Demo
+            </button>
+          </div>
         </div>
-      )}
+      ) : null}
 
       <div className="px-4 sm:px-6 lg:px-8 h-15 flex items-center justify-between gap-4">
         {/* Left: Mobile Toggle & Page Title */}
@@ -163,11 +195,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                 onClick={() => setProfileDropdownOpen(false)}
               >
                 <div className="px-4 py-2.5 border-b border-gray-100">
-                  <div className="font-bold text-sm text-[#10233F]">{profile.name}</div>
-                  <div className="text-xs text-[#607089] truncate">{profile.email}</div>
+                  <div className="font-bold text-sm text-[#10233F]">
+                    {user?.user_metadata?.name || profile.name}
+                  </div>
+                  <div className="text-xs text-[#607089] truncate">
+                    {user?.email || profile.email}
+                  </div>
                   <div className="text-[11px] text-[#176FF5] font-semibold mt-1 flex items-center gap-1">
                     <GraduationCap className="w-3.5 h-3.5" />
-                    <span>{profile.institution}</span>
+                    <span>{user ? 'Verified Learner Account' : profile.institution}</span>
                   </div>
                 </div>
 

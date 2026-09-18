@@ -32,6 +32,7 @@ import {
 } from '../data/initialDemoData';
 import { DIAGNOSTIC_QUESTIONS } from '../data/diagnosticQuestions';
 import { generateDiagnosticReport, DEFAULT_DEMO_REPORT } from '../utils/diagnosticEngine';
+import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'learnwise_state_v1';
 
@@ -92,6 +93,8 @@ interface LearnerContextType {
 const LearnerContext = createContext<LearnerContextType | null>(null);
 
 export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, signOut: authSignOut } = useAuth();
+
   // Initialize state from localStorage or demo defaults
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_auth`);
@@ -338,6 +341,22 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [interventions]);
 
+  // Synchronize authenticated identity from Supabase Auth
+  useEffect(() => {
+    if (user) {
+      setIsDemoAccount(false);
+      setIsAuthenticated(true);
+      setProfile(prev => ({
+        ...prev,
+        id: user.id,
+        email: user.email || prev.email,
+        name: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || (prev.name && prev.name !== DEMO_LEARNER_PROFILE.name ? prev.name : 'New Learner'),
+      }));
+    } else if (!isDemoAccount) {
+      setIsAuthenticated(false);
+    }
+  }, [user]);
+
   // Auth & Account handlers
   const login = (email: string, name: string) => {
     setIsAuthenticated(true);
@@ -346,10 +365,17 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const logout = () => {
+    if (user) {
+      void authSignOut();
+    }
     setIsAuthenticated(false);
+    setIsDemoAccount(false);
   };
 
   const loadDemoAccount = () => {
+    if (user) {
+      void authSignOut();
+    }
     setIsAuthenticated(true);
     setIsDemoAccount(true);
     setProfile(DEMO_LEARNER_PROFILE);
@@ -369,12 +395,12 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const resetToFreshAccount = () => {
-    setIsAuthenticated(true);
+    setIsAuthenticated(user !== null);
     setIsDemoAccount(false);
     setProfile({
-      id: 'learner_fresh_' + Date.now(),
-      name: 'New Learner',
-      email: 'student@learnwise.ng',
+      id: user ? user.id : 'learner_fresh_' + Date.now(),
+      name: user?.user_metadata?.name || 'New Learner',
+      email: user?.email || 'student@learnwise.ng',
       educationLevel: 'University_Undergrad',
       institution: 'University / Secondary School',
       fieldOfStudy: 'General Studies',

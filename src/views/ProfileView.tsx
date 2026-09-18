@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLearner } from '../context/LearnerContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   User, 
   GraduationCap, 
@@ -19,6 +20,7 @@ interface ProfileViewProps {
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
   const { profile, updateProfile, isDemoAccount, loadDemoAccount, resetToFreshAccount } = useLearner();
+  const { user } = useAuth();
 
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
@@ -35,7 +37,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
     e.preventDefault();
     updateProfile({
       name,
-      email,
+      email: user ? (user.email || profile.email) : email,
       institution,
       fieldOfStudy,
       educationLevel,
@@ -99,13 +101,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-bold uppercase text-[#071A3A]">Email Address</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase text-[#071A3A]">Email Address</label>
+              {user && (
+                <span className="text-[10px] text-[#176FF5] font-semibold">Managed by Supabase Auth</span>
+              )}
+            </div>
             <input
               type="email"
-              value={email}
+              value={user ? (user.email || email) : email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={!!user}
               required
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-xs sm:text-sm text-[#071A3A] focus:ring-2 focus:ring-[#124BCE]"
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm ${
+                user 
+                  ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
+                  : 'border-gray-300 text-[#071A3A] focus:ring-2 focus:ring-[#124BCE]'
+              }`}
             />
           </div>
         </div>

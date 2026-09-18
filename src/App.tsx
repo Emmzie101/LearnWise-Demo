@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LearnerProvider, useLearner } from './context/LearnerContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthModal } from './components/AuthModal';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { SettingsModal } from './components/SettingsModal';
@@ -20,10 +22,19 @@ import { AISuiteView } from './views/AISuiteView';
 import { PromptLibraryView } from './views/PromptLibraryView';
 import { InterventionsView } from './views/InterventionsView';
 import { ProfileView } from './views/ProfileView';
-import { Home, Target, Repeat, Menu, Compass } from 'lucide-react';
+import { Home, Target, Repeat, Menu, Compass, BrainCircuit } from 'lucide-react';
 
 function AppContent() {
   const { isDemoAccount, loadDemoAccount } = useLearner();
+  const { user, loading: authLoading } = useAuth();
+  
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+
+  const openAuthModal = (mode: 'signin' | 'signup' = 'signin') => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
   
   // Hash/state-based routing for robust container iframe compatibility
   const [currentRoute, setCurrentRoute] = useState<string>(() => {
@@ -62,6 +73,30 @@ function AppContent() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Route guard: Protect /app/* routes unless authenticated or in demo mode
+  const isAppRoute = currentRoute.startsWith('/app');
+  const isAccessAllowed = user !== null || isDemoAccount;
+
+  useEffect(() => {
+    if (!authLoading && isAppRoute && !isAccessAllowed) {
+      navigate('/');
+    }
+  }, [authLoading, isAppRoute, isAccessAllowed]);
+
+  if (authLoading && isAppRoute && !isDemoAccount) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFD] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-[#10233F] text-white flex items-center justify-center shadow-md animate-pulse">
+          <BrainCircuit className="w-6 h-6 text-[#176FF5]" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="font-bold text-base text-[#10233F]">Loading LearnWise Workspace</h2>
+          <p className="text-xs text-[#607089]">Verifying your active learner session...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Determine subview rendering
   const renderView = () => {
     // Landing View
@@ -74,6 +109,8 @@ function AppContent() {
             navigate('/app/today');
           }}
           onGoToApp={() => navigate('/app/today')}
+          onSignIn={() => openAuthModal('signin')}
+          onSignUp={() => openAuthModal('signup')}
           onStartWalkthrough={() => openWalkthrough(0)}
         />
       );
@@ -243,6 +280,7 @@ function AppContent() {
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
           onOpenSettings={() => setSettingsModalOpen(true)}
           onStartWalkthrough={() => openWalkthrough(0)}
+          onOpenAuthModal={openAuthModal}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto pb-24 lg:pb-12">
@@ -304,6 +342,19 @@ function AppContent() {
         isOpen={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
         onNavigate={navigate}
+        onOpenAuthModal={openAuthModal}
+      />
+
+      {/* Real Supabase Authentication Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authModalMode}
+        onSuccess={() => navigate('/app/today')}
+        onExploreDemo={() => {
+          loadDemoAccount();
+          navigate('/app/today');
+        }}
       />
 
       {/* Interactive Platform Walkthrough Modal */}
@@ -319,8 +370,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LearnerProvider>
-      <AppContent />
-    </LearnerProvider>
+    <AuthProvider>
+      <LearnerProvider>
+        <AppContent />
+      </LearnerProvider>
+    </AuthProvider>
   );
 }

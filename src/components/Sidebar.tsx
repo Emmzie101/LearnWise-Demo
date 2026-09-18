@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLearner } from '../context/LearnerContext';
+import { useAuth } from '../context/AuthContext';
 import {
   Home,
   Target,
@@ -44,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onStartWalkthrough,
 }) => {
   const { profile, isDemoAccount, goals, selectedGoalId, metrics, logout } = useLearner();
+  const { user } = useAuth();
 
   // Collapsible nested state
   const isLearnActive = ['/app/capture', '/app/capture/new', '/app/process', '/app/reflect'].some(r => currentRoute.startsWith(r));
@@ -487,7 +489,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <User className="w-4 h-4 shrink-0" />
             <span className="flex-1 text-left">My Profile</span>
-            <span className="text-[10px] opacity-70 truncate max-w-[70px]">{profile?.name ? profile.name.split(' ')[0] : 'Learner'}</span>
+            <span className="text-[10px] opacity-70 truncate max-w-[70px]">
+              {user?.user_metadata?.name ? (user.user_metadata.name as string).split(' ')[0] : profile?.name ? profile.name.split(' ')[0] : 'Learner'}
+            </span>
           </button>
 
           <button
@@ -496,11 +500,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Settings className="w-4 h-4 shrink-0 text-[#8A96A8]" />
             <span className="flex-1 text-left">Settings & Demo</span>
-            {isDemoAccount && (
+            {user ? (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#EDF5FF] text-[#176FF5]">
+                Live
+              </span>
+            ) : isDemoAccount ? (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#EDF5FF] text-[#176FF5]">
                 Ada
               </span>
-            )}
+            ) : null}
           </button>
 
           <button

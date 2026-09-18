@@ -24,12 +24,18 @@ interface LandingViewProps {
   onStartDiagnostic: () => void;
   onExploreDemo: () => void;
   onGoToApp?: () => void;
+  onSignIn?: () => void;
+  onSignUp?: () => void;
+  onStartWalkthrough?: () => void;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({ 
   onStartDiagnostic, 
   onExploreDemo, 
-  onGoToApp 
+  onGoToApp,
+  onSignIn,
+  onSignUp,
+  onStartWalkthrough
 }) => {
   const { loadDemoAccount } = useLearner();
   const [activeStepTab, setActiveStepTab] = useState<number>(0);
@@ -157,8 +163,16 @@ export const LandingView: React.FC<LandingViewProps> = ({
             >
               Demo
             </button>
+            {onSignIn && (
+              <button
+                onClick={onSignIn}
+                className="text-xs font-semibold text-[#10233F] hover:text-[#176FF5] px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+              >
+                Sign In
+              </button>
+            )}
             <button
-              onClick={onStartDiagnostic}
+              onClick={onSignUp || onStartDiagnostic}
               className="btn-primary-glow px-4 py-2 rounded-xl sm:rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
             >
               <span>Get started</span>
@@ -211,6 +225,18 @@ export const LandingView: React.FC<LandingViewProps> = ({
             <span>Explore Demo Account</span>
           </button>
         </div>
+
+        {onSignIn && (
+          <div className="text-xs text-[#607089]">
+            Already registered?{' '}
+            <button
+              onClick={onSignIn}
+              className="text-[#176FF5] font-bold hover:underline cursor-pointer"
+            >
+              Sign in to your workspace
+            </button>
+          </div>
+        )}
 
         {/* Reassurance Subline */}
         <div className="text-xs text-[#8A96A8] pt-1">

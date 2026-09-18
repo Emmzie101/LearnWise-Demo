@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLearner } from '../context/LearnerContext';
+import { useAuth } from '../context/AuthContext';
 import { 
   X, 
   RefreshCw, 
@@ -9,17 +10,25 @@ import {
   Database,
   CheckCircle2,
   HelpCircle,
-  Globe
+  Globe,
+  LogOut
 } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigate: (route: string) => void;
+  onOpenAuthModal?: (mode?: 'signin' | 'signup') => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onNavigate }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onNavigate,
+  onOpenAuthModal 
+}) => {
   const { isDemoAccount, loadDemoAccount, resetToFreshAccount } = useLearner();
+  const { user, signOut: authSignOut } = useAuth();
 
   if (!isOpen) return null;
 
@@ -41,6 +50,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Cloud Authentication Status Card */}
+        {user ? (
+          <div className="p-4 rounded-2xl bg-[#EDF5FF] border border-[#176FF5]/20 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#176FF5]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#10233F]">
+                  Supabase Authenticated Account
+                </span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                Connected
+              </span>
+            </div>
+            <div className="text-xs text-[#10233F]">
+              Logged in as <strong className="font-semibold">{user.email}</strong>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={async () => {
+                  await authSignOut();
+                  onClose();
+                  onNavigate('/');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-gray-200 text-rose-600 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900">Want to save your learning cloud-wide?</span>
+            </div>
+            <p className="text-[11px] text-amber-800">
+              Create a free Supabase-backed account to securely store your learning identity.
+            </p>
+            {onOpenAuthModal && (
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenAuthModal('signin');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#124BCE] hover:bg-[#071A3A] text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenAuthModal('signup');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-[#071A3A] text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Demo Account Switcher Card */}
         <div className="space-y-4">
