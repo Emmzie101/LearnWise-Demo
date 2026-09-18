@@ -7,9 +7,11 @@ import {
   ArrowRight, 
   ArrowLeft, 
   CheckCircle2, 
-  HelpCircle, 
   Sparkles,
-  Info
+  Info,
+  BookOpen,
+  FlaskConical,
+  HelpCircle
 } from 'lucide-react';
 
 interface DiagnosticViewProps {
@@ -18,32 +20,32 @@ interface DiagnosticViewProps {
 
 const DIMENSION_EXPLANATIONS: Record<string, { title: string; simple: string }> = {
   cognitive_processing: {
-    title: 'Understanding Ideas',
-    simple: 'How your brain takes in and simplifies difficult concepts without feeling overloaded.',
+    title: 'Understanding Multi-Step Ideas',
+    simple: 'How your working memory breaks down complex proofs, code, or scientific processes without crashing.',
   },
   knowledge_acquisition: {
-    title: 'Remembering What You Learn',
-    simple: 'Testing your memory without looking at notes so information stays with you.',
+    title: 'Memory Durability & Retrieval',
+    simple: 'Active retrieval practice vs. passive re-reading so knowledge stays locked in your long-term memory.',
   },
   knowledge_organization: {
-    title: 'Connecting Concepts',
-    simple: 'Building a clear mental map so different topics link together naturally.',
+    title: 'Mental Models & Concept Maps',
+    simple: 'Connecting topics into a structured web of knowledge instead of memorizing isolated definitions.',
   },
   self_regulation: {
-    title: 'Honest Self-Checking',
-    simple: 'Knowing what you actually understand versus what you only think you understand.',
+    title: 'Honest Metacognitive Checking',
+    simple: 'Accurately knowing what you actually understand vs. the false feeling of familiarity (the Fluency Illusion).',
   },
   motivation_emotion_identity: {
-    title: 'Handling Tough Challenges',
-    simple: 'Staying calm and confident when a topic feels difficult, seeing mistakes as clues.',
+    title: 'Productive Struggle & Resilience',
+    simple: 'Viewing difficulty as productive brain growth rather than a lack of "natural talent".',
   },
   environment_behavior: {
-    title: 'Study Habits & Distractions',
-    simple: 'Managing study time, hostel noise, and power outages with steady routines.',
+    title: 'Study Habits & Distraction Shields',
+    simple: 'Setting up low-friction physical spaces, offline notes, and habits that don\'t depend on willpower.',
   },
   performance_optimization: {
-    title: 'Solving New Exam Questions',
-    simple: 'Using what you know to answer brand-new questions in WAEC, JAMB, or university exams.',
+    title: 'Transfer to Unfamiliar Exam Problems',
+    simple: 'Applying principles to brand-new, disguised questions in WAEC, JAMB, or university semester finals.',
   },
 };
 
@@ -69,7 +71,7 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
       questionId: currentQuestion.id,
       selectedOptionId: optionId,
       confidenceRating: selectedConfidence,
-      evidenceType: currentQuestion.questionType === 'scenario' ? 'observed' : 'declared',
+      evidenceType: currentQuestion.isMiniPerformance ? 'performance' : currentQuestion.questionType === 'scenario' ? 'observed' : 'declared',
     });
   };
 
@@ -104,15 +106,15 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
             </div>
             <div>
               <h1 className="font-bold text-lg text-[#071A3A] font-heading">
-                Learning System Check
+                PLSFR+ Diagnostic Assessment
               </h1>
               <span className="text-xs text-gray-500">
-                Question {currentIndex + 1} of {totalQuestions} • Answer honestly based on your real study habits
+                Question {currentIndex + 1} of {totalQuestions} • Triangulating habits, scenarios & active recall
               </span>
             </div>
           </div>
 
-          <div className="text-right self-start sm:self-auto">
+          <div className="text-right self-start sm:self-auto flex items-center gap-2">
             <span className="text-xs font-bold text-[#124BCE]">
               {progressPercent}% Complete
             </span>
@@ -130,37 +132,45 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
 
       {/* Main Diagnostic Question Card */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#1769FF]/15 shadow-sm space-y-6">
-        {/* Dimension Header with "Term + Simple Explanation" */}
-        <div className="p-3.5 rounded-2xl bg-[#F7FAFF] border border-[#1769FF]/15 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#124BCE] text-white">
-              {dimInfo.title}
-            </span>
-            <span className="text-xs font-semibold text-gray-700">
-              {currentQuestion.subDimension}
-            </span>
+        {/* Pillar Header with Simple Explanation + Evidence Tier */}
+        <div className="p-4 rounded-2xl bg-[#F7FAFF] border border-[#1769FF]/15 space-y-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#124BCE] text-white">
+                {dimInfo.title}
+              </span>
+              <span className="text-xs font-semibold text-gray-800">
+                {currentQuestion.subDimension}
+              </span>
+            </div>
+
+            {currentQuestion.isMiniPerformance && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                <FlaskConical className="w-3 h-3" /> Live Recall Check
+              </span>
+            )}
           </div>
-          <p className="text-[11px] text-gray-500 leading-snug">
+          <p className="text-xs text-gray-600 leading-snug">
             {dimInfo.simple}
           </p>
         </div>
 
         {/* Question Prompt */}
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <h2 className="text-lg sm:text-xl font-bold font-heading text-[#071A3A] leading-snug">
             {currentQuestion.prompt}
           </h2>
           {currentQuestion.scenarioContext && (
-            <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200/60 text-xs text-amber-900 leading-relaxed">
-              <strong>Example Scenario:</strong> {currentQuestion.scenarioContext}
+            <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 text-xs text-amber-900 leading-relaxed">
+              <strong>Context:</strong> {currentQuestion.scenarioContext}
             </div>
           )}
         </div>
 
         {/* Options List */}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 pt-1">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-            Which statement sounds most like you?
+            Select the option that most accurately describes your behavior:
           </div>
 
           {currentQuestion.options.map(option => {
@@ -171,7 +181,7 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
                 onClick={() => handleSelectOption(option.id)}
                 className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-[#EAF2FF]/60 border-[#124BCE] ring-2 ring-[#1769FF]/20 shadow-2xs'
+                    ? 'bg-[#EAF2FF]/70 border-[#124BCE] ring-2 ring-[#1769FF]/20 shadow-2xs'
                     : 'bg-white hover:bg-gray-50 border-gray-200 hover:border-[#1769FF]/30'
                 }`}
               >
@@ -189,9 +199,9 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
                     </p>
 
                     {isSelected && option.diagnosticInsight && (
-                      <div className="text-[11px] text-[#124BCE] font-medium pt-1 flex items-start gap-1.5">
-                        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span><strong>What this reveals:</strong> {option.diagnosticInsight}</span>
+                      <div className="text-[11px] text-[#124BCE] font-medium pt-1 flex items-start gap-1.5 bg-blue-50/60 p-2.5 rounded-xl border border-blue-100">
+                        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#124BCE]" />
+                        <span><strong>Cognitive insight:</strong> {option.diagnosticInsight}</span>
                       </div>
                     )}
                   </div>
@@ -204,13 +214,29 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
         {/* Confidence check for metacognitive calibration */}
         {selectedOptionId && (
           <div className="pt-4 border-t border-gray-100 space-y-2">
-            <div className="text-xs font-semibold text-gray-700">
-              How confident are you in this choice?
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-gray-700">How certain are you in this answer / habit?</span>
+              <span className="text-[11px] text-gray-500">Calibrates your self-regulation index</span>
             </div>
             <ConfidenceMeter
               value={selectedConfidence}
               onChange={setSelectedConfidence}
             />
+          </div>
+        )}
+
+        {/* Scientific Grounding Citation */}
+        {currentQuestion.citation && (
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
+            <span className="flex items-center gap-1">
+              <BookOpen className="w-3 h-3 text-gray-400" />
+              <span>Grounded in: <em>{currentQuestion.citation}</em></span>
+            </span>
+            {currentQuestion.evidenceTier && (
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 font-medium text-[10px] text-slate-600 border border-slate-200">
+                {currentQuestion.evidenceTier} Evidence
+              </span>
+            )}
           </div>
         )}
 
@@ -240,7 +266,7 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
                 : 'bg-[#124BCE] hover:bg-[#1769FF] text-white shadow-sm shadow-[#124BCE]/20 cursor-pointer'
             }`}
           >
-            <span>{currentIndex === totalQuestions - 1 ? 'See My Results' : 'Next Question'}</span>
+            <span>{currentIndex === totalQuestions - 1 ? 'Generate My Diagnostic Report' : 'Next Question'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

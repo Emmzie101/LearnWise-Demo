@@ -13,6 +13,7 @@ import {
   LearningRiskSignal,
   LearningStrategyPlan,
   DiagnosticResponse,
+  DiagnosticReport,
   ConceptState,
   RetrievalErrorType
 } from '../types';
@@ -30,6 +31,7 @@ import {
   DEMO_STRATEGY_PLAN
 } from '../data/initialDemoData';
 import { DIAGNOSTIC_QUESTIONS } from '../data/diagnosticQuestions';
+import { generateDiagnosticReport, DEFAULT_DEMO_REPORT } from '../utils/diagnosticEngine';
 
 const STORAGE_KEY = 'learnwise_state_v1';
 
@@ -62,6 +64,7 @@ interface LearnerContextType {
   strategyPlan: LearningStrategyPlan | null;
   diagnosticResponses: DiagnosticResponse[];
   diagnosticCompleted: boolean;
+  diagnosticReport: DiagnosticReport | null;
   metrics: AssimilationMetrics;
   nextBestAction: Recommendation | null;
 
@@ -74,6 +77,7 @@ interface LearnerContextType {
   updateProfile: (updates: Partial<LearnerProfile>) => void;
   submitDiagnosticResponse: (response: DiagnosticResponse) => void;
   completeDiagnostic: () => void;
+  resetDiagnostic: () => void;
   createGoal: (goal: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => void;
   captureConcept: (concept: Omit<Concept, 'id' | 'state' | 'recallSuccessCount' | 'recallFailureCount' | 'applicationSuccessCount' | 'applicationFailureCount' | 'reinforcementIntervalDays'>) => string;
   updateConceptState: (conceptId: string, newState: ConceptState) => void;
@@ -169,6 +173,11 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return saved ? JSON.parse(saved) : true;
   });
 
+  const [diagnosticReport, setDiagnosticReport] = useState<DiagnosticReport | null>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}_diagnostic_report`);
+    return saved ? JSON.parse(saved) : DEFAULT_DEMO_REPORT;
+  });
+
   // Save changes to localStorage
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_auth`, JSON.stringify(isAuthenticated));
@@ -187,6 +196,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(`${STORAGE_KEY}_strategy`, JSON.stringify(strategyPlan));
     localStorage.setItem(`${STORAGE_KEY}_diagnostic_res`, JSON.stringify(diagnosticResponses));
     localStorage.setItem(`${STORAGE_KEY}_diagnostic_done`, JSON.stringify(diagnosticCompleted));
+    localStorage.setItem(`${STORAGE_KEY}_diagnostic_report`, JSON.stringify(diagnosticReport));
   }, [
     isAuthenticated,
     isDemoAccount,
@@ -204,6 +214,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     strategyPlan,
     diagnosticResponses,
     diagnosticCompleted,
+    diagnosticReport,
   ]);
 
   // Compute real metrics derived dynamically from actual records
@@ -353,6 +364,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setReflections(DEMO_REFLECTIONS);
     setRisks(DEMO_LEARNING_RISKS);
     setStrategyPlanState(DEMO_STRATEGY_PLAN);
+    setDiagnosticReport(DEFAULT_DEMO_REPORT);
     setDiagnosticCompleted(true);
   };
 
@@ -382,6 +394,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setRisks([]);
     setStrategyPlanState(null);
     setDiagnosticResponses([]);
+    setDiagnosticReport(null);
     setDiagnosticCompleted(false);
   };
 
@@ -397,82 +410,17 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const completeDiagnostic = () => {
-    // Score all 7 dimensions dynamically based on answered options
-    const dimensionScoreTotals: Record<PlsfrDimensionKey, { total: number; count: number }> = {
-      cognitive_processing: { total: 0, count: 0 },
-      knowledge_acquisition: { total: 0, count: 0 },
-      knowledge_organization: { total: 0, count: 0 },
-      self_regulation: { total: 0, count: 0 },
-      motivation_emotion_identity: { total: 0, count: 0 },
-      environment_behavior: { total: 0, count: 0 },
-      performance_optimization: { total: 0, count: 0 },
-    };
-
-    diagnosticResponses.forEach(resp => {
-      const question = DIAGNOSTIC_QUESTIONS.find(q => q.id === resp.questionId);
-      if (!question) return;
-      const option = question.options.find(o => o.id === resp.selectedOptionId);
-      if (!option) return;
-
-      Object.entries(option.scoreImpact).forEach(([key, val]) => {
-        const dimKey = key as PlsfrDimensionKey;
-        if (dimensionScoreTotals[dimKey]) {
-          dimensionScoreTotals[dimKey].total += val;
-          dimensionScoreTotals[dimKey].count += 1;
-        }
-      });
-    });
-
-    const updatedDims: PlsfrDimension[] = dimensions.map(d => {
-      const recorded = dimensionScoreTotals[d.key];
-      let newScore = d.score;
-      if (recorded && recorded.count > 0) {
-        newScore = Math.round(recorded.total / recorded.count);
-      }
-      let strength: PlsfrDimension['strengthLevel'] = 'Emerging';
-      if (newScore < 40) strength = 'Developing';
-      else if (newScore < 60) strength = 'Emerging';
-      else if (newScore < 75) strength = 'Functional';
-      else if (newScore < 90) strength = 'Strong';
-      else strength = 'Highly Developed';
-
-      let risk: PlsfrDimension['riskLevel'] = 'Low';
-      if (newScore < 45) risk = 'Elevated';
-      else if (newScore < 60) risk = 'Moderate';
-
-      return {
-        ...d,
-        score: newScore,
-        evidenceCount: d.evidenceCount + (recorded?.count || 1),
-        strengthLevel: strength,
-        riskLevel: risk,
-      };
-    });
-
-    setDimensions(updatedDims);
+    // Generate triangulated PLSFR+ diagnostic report with auditable rules, confidence bands, & interventions
+    const result = generateDiagnosticReport(diagnosticResponses, dimensions, profile);
+    setDimensions(result.updatedDimensions);
+    setDiagnosticReport(result.report);
+    setInterventions(result.initialInterventions);
     setDiagnosticCompleted(true);
+  };
 
-    // Generate initial interventions based on lowest scoring dimensions
-    const lowestDims = [...updatedDims].sort((a, b) => a.score - b.score).slice(0, 2);
-    const newInterventions: Intervention[] = lowestDims.map((dim, idx) => ({
-      id: `int_diag_${Date.now()}_${idx}`,
-      title: `${dim.name} Scaffolding Protocol`,
-      targetDimension: dim.key,
-      problem: `Diagnostic identified ${dim.name} as an active learning system friction point (${dim.score}/100).`,
-      reason: `Targeted intervention on this sub-dimension provides the highest systemic leverage for capability growth.`,
-      action: dim.key === 'knowledge_acquisition' 
-        ? 'Begin every study session with 5-10 minutes of closed-book retrieval before consulting notes.'
-        : dim.key === 'self_regulation'
-        ? 'Rate your confidence before checking answers and classify error root causes.'
-        : 'Formulate every core idea into a personal plain-language analogy.',
-      frequency: 'Every study session',
-      expectedOutcome: `Improve ${dim.name} score to functional level within 3 weeks.`,
-      priority: 'High',
-      status: 'Active',
-      evidenceOrigin: `PLSFR+ Diagnostic Assessment Result (${dim.score}/100)`,
-    }));
-
-    setInterventions(newInterventions);
+  const resetDiagnostic = () => {
+    setDiagnosticResponses([]);
+    setDiagnosticCompleted(false);
   };
 
   const createGoal = (goalData: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => {
@@ -664,6 +612,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         strategyPlan,
         diagnosticResponses,
         diagnosticCompleted,
+        diagnosticReport,
         metrics,
         nextBestAction,
         login,
@@ -674,6 +623,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateProfile,
         submitDiagnosticResponse,
         completeDiagnostic,
+        resetDiagnostic,
         createGoal,
         captureConcept,
         updateConceptState,

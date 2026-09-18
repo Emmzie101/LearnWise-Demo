@@ -11,14 +11,10 @@ import {
   FolderPlus, 
   Clock, 
   CheckCircle2, 
-  AlertCircle, 
   ArrowRight,
   Sparkles,
-  Target,
-  BrainCircuit,
-  Calendar,
   ChevronRight,
-  HelpCircle
+  Flame
 } from 'lucide-react';
 
 interface TodayQueueViewProps {
@@ -65,19 +61,19 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
       {/* 1. Header Greeting & Primary Action Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#071A3A] tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#10233F] tracking-tight">
             Good day, {profile?.name ? profile.name.split(' ')[0] : 'Learner'}
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-            Focus: <strong className="text-[#071A3A]">{selectedGoal?.title || 'Academic Mastery'}</strong> ({selectedGoal?.domain || 'General'})
+          <p className="text-xs sm:text-sm text-[#607089] mt-0.5">
+            Focus: <strong className="text-[#10233F]">{selectedGoal?.title || 'Academic Mastery'}</strong> ({selectedGoal?.domain || 'General'})
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {onStartWalkthrough && (
             <button
               onClick={() => onStartWalkthrough(0)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#EAF2FF] hover:bg-[#124BCE] text-[#124BCE] hover:text-white text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#EDF5FF] hover:bg-[#DCEBFF] text-[#176FF5] text-xs font-bold transition-all cursor-pointer border border-[#176FF5]/20"
               title="Learn how LearnWise works from start to finish"
             >
               <Compass className="w-3.5 h-3.5" />
@@ -87,16 +83,17 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
           <button
             onClick={() => onNavigate('/app/capture/new')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 text-[#071A3A] text-xs font-semibold border border-gray-200 shadow-2xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F8FAFD] text-[#10233F] text-xs font-semibold border border-[rgba(24,60,110,0.1)] shadow-xs transition-colors cursor-pointer"
           >
-            <FolderPlus className="w-3.5 h-3.5 text-[#124BCE]" />
+            <FolderPlus className="w-3.5 h-3.5 text-[#176FF5]" />
             <span>Add Study Topic</span>
           </button>
+
           <button
             onClick={() => onNavigate('/app/ai-coach')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#EAF2FF] hover:bg-[#124BCE] text-[#124BCE] hover:text-white text-xs font-bold transition-all cursor-pointer"
+            className="btn-primary-glow flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span>Ask AI Coach</span>
           </button>
         </div>
@@ -106,8 +103,8 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="text-xs font-bold uppercase tracking-wider text-[#124BCE] flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#124BCE] animate-pulse" />
+            <div className="text-xs font-bold uppercase tracking-wider text-[#176FF5] flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#176FF5] animate-pulse" />
               Priority Focus
             </div>
             <VisualCueTooltip
@@ -118,18 +115,26 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
               onExploreWalkthrough={onStartWalkthrough ? () => onStartWalkthrough(2) : undefined}
             />
           </div>
-          <span className="text-xs text-gray-400">5–8 min</span>
+          <span className="text-xs text-[#8A96A8] font-medium">5–8 min estimated</span>
         </div>
 
         {nextBestAction ? (
-          <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-[#071A3A] via-[#0A2558] to-[#071A3A] text-white border border-[#1769FF]/20 shadow-lg shadow-[#124BCE]/10 relative overflow-hidden">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white text-[#10233F] border border-[rgba(24,60,110,0.08)] shadow-[0_12px_40px_rgba(30,70,120,0.06)] relative overflow-hidden">
+            {/* Subtle atmospheric glow */}
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#176FF5]/5 rounded-full blur-3xl pointer-events-none" />
+
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-2 max-w-xl">
-                <h2 className="text-xl sm:text-2xl font-bold font-heading text-white tracking-tight">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EDF5FF] text-[#176FF5] text-[11px] font-bold">
+                  <Flame className="w-3 h-3 text-amber-500" />
+                  <span>High Yield Recall Due</span>
+                </div>
+
+                <h2 className="text-xl sm:text-2xl font-bold font-heading text-[#10233F] tracking-tight">
                   {nextBestAction.title}
                 </h2>
 
-                <p className="text-sm text-white/80 leading-relaxed font-normal">
+                <p className="text-sm text-[#607089] leading-relaxed font-normal">
                   {nextBestAction.reason}
                 </p>
               </div>
@@ -137,7 +142,7 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
               <div className="flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center md:items-end gap-2.5 shrink-0">
                 <button
                   onClick={() => onNavigate(nextBestAction.actionRoute || '/app/retrieve')}
-                  className="px-6 py-3 rounded-2xl bg-[#124BCE] hover:bg-[#1769FF] text-white font-bold text-sm shadow-md shadow-[#124BCE]/25 flex items-center justify-center gap-2 transition-all hover:translate-x-0.5 cursor-pointer"
+                  className="btn-primary-glow px-6 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all hover:translate-x-0.5 cursor-pointer"
                 >
                   <span>{nextBestAction.actionPrompt || 'Start Practice'}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -145,27 +150,27 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
                 <button
                   onClick={() => dismissRecommendation(nextBestAction.id)}
-                  className="text-xs text-white/50 hover:text-white/80 py-1 px-2 cursor-pointer transition-colors"
+                  className="text-xs text-[#8A96A8] hover:text-[#10233F] py-1 px-2 cursor-pointer transition-colors"
                 >
-                  Dismiss
+                  Dismiss for now
                 </button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="p-6 rounded-3xl bg-white border border-[#1769FF]/15 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-[#071A3A]">All caught up</h3>
-                <p className="text-xs text-gray-500">All scheduled reviews are complete for today.</p>
+                <h3 className="font-bold text-sm text-[#10233F]">All caught up</h3>
+                <p className="text-xs text-[#607089]">All scheduled reviews are complete for today.</p>
               </div>
             </div>
             <button
               onClick={() => onNavigate('/app/capture/new')}
-              className="px-4 py-2 rounded-xl bg-[#124BCE] text-white text-xs font-bold hover:bg-[#1769FF] transition-colors cursor-pointer"
+              className="btn-primary-glow px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               Add Topic
             </button>
@@ -177,8 +182,8 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Progress Overview
+            <div className="text-xs font-bold uppercase tracking-wider text-[#8A96A8]">
+              Cognitive Telemetry
             </div>
             <VisualCueTooltip
               badgeText="What are these?"
@@ -190,18 +195,18 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
           </div>
           <button
             onClick={() => onNavigate('/app/dashboard')}
-            className="text-xs font-semibold text-[#124BCE] hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-xs font-semibold text-[#176FF5] hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>Telemetry</span>
+            <span>Telemetry Dashboard</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Card 1: Memory Strength (Retrieval) */}
-          <div className="p-5 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-2">
+          <div className="p-5 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-[0_8px_25px_rgba(30,70,120,0.03)] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500">Recall Accuracy</span>
+              <span className="text-xs font-bold text-[#607089]">Recall Accuracy</span>
               <span className="text-[10px] text-emerald-700 font-bold px-2 py-0.5 rounded-full bg-emerald-50">
                 Closed-book
               </span>
@@ -220,9 +225,9 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
           </div>
 
           {/* Card 2: Problem Solving (Application) */}
-          <div className="p-5 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-2">
+          <div className="p-5 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-[0_8px_25px_rgba(30,70,120,0.03)] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500">Application Transfer</span>
+              <span className="text-xs font-bold text-[#607089]">Application Transfer</span>
               <span className="text-[10px] text-amber-800 font-bold px-2 py-0.5 rounded-full bg-amber-50">
                 Exam scenarios
               </span>
@@ -241,21 +246,21 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
           </div>
 
           {/* Card 3: Calibration */}
-          <div className="p-5 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-2">
+          <div className="p-5 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-[0_8px_25px_rgba(30,70,120,0.03)] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500">Self-Calibration</span>
-              <span className="text-[10px] text-indigo-700 font-bold px-2 py-0.5 rounded-full bg-indigo-50">
+              <span className="text-xs font-bold text-[#607089]">Self-Calibration</span>
+              <span className="text-[10px] text-[#176FF5] font-bold px-2 py-0.5 rounded-full bg-[#EDF5FF]">
                 Metacognitive
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold font-heading text-[#124BCE]">
+              <span className="text-3xl font-extrabold font-heading text-[#176FF5]">
                 {metrics.confidenceCalibrationRate}%
               </span>
             </div>
             <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-[#124BCE] rounded-full transition-all duration-500" 
+                className="h-full bg-[#176FF5] rounded-full transition-all duration-500" 
                 style={{ width: `${metrics.confidenceCalibrationRate}%` }} 
               />
             </div>
@@ -266,16 +271,16 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
       {/* 4. Study Queue */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
+          <div className="text-xs font-bold uppercase tracking-wider text-[#8A96A8]">
             Today's Practice Queue
           </div>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 self-start sm:self-auto text-xs">
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-[rgba(24,60,110,0.08)] self-start sm:self-auto text-xs shadow-2xs">
             <button
               onClick={() => setActiveWorkTab('all')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                activeWorkTab === 'all' ? 'bg-[#124BCE] text-white font-bold' : 'text-gray-600 hover:text-[#071A3A]'
+                activeWorkTab === 'all' ? 'bg-[#176FF5] text-white font-bold' : 'text-[#607089] hover:text-[#10233F]'
               }`}
             >
               All ({totalTasksCount})
@@ -283,7 +288,7 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             <button
               onClick={() => setActiveWorkTab('retrieve')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                activeWorkTab === 'retrieve' ? 'bg-[#124BCE] text-white font-bold' : 'text-gray-600 hover:text-[#071A3A]'
+                activeWorkTab === 'retrieve' ? 'bg-[#176FF5] text-white font-bold' : 'text-[#607089] hover:text-[#10233F]'
               }`}
             >
               Recall ({retrievalQueue.length})
@@ -291,7 +296,7 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             <button
               onClick={() => setActiveWorkTab('apply')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                activeWorkTab === 'apply' ? 'bg-[#124BCE] text-white font-bold' : 'text-gray-600 hover:text-[#071A3A]'
+                activeWorkTab === 'apply' ? 'bg-[#176FF5] text-white font-bold' : 'text-[#607089] hover:text-[#10233F]'
               }`}
             >
               Solve ({applicationQueue.length})
@@ -299,7 +304,7 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             <button
               onClick={() => setActiveWorkTab('reinforce')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                activeWorkTab === 'reinforce' ? 'bg-[#124BCE] text-white font-bold' : 'text-gray-600 hover:text-[#071A3A]'
+                activeWorkTab === 'reinforce' ? 'bg-[#176FF5] text-white font-bold' : 'text-[#607089] hover:text-[#10233F]'
               }`}
             >
               Review ({reinforcementQueue.length})
@@ -310,37 +315,37 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* Column 1: Active Recall */}
           {(activeWorkTab === 'all' || activeWorkTab === 'retrieve') && (
-            <div className="p-5 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-3">
+            <div className="p-5 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-[0_8px_25px_rgba(30,70,120,0.03)] space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <div className="flex items-center gap-2 text-[#124BCE]">
+                <div className="flex items-center gap-2 text-[#176FF5]">
                   <Repeat className="w-4 h-4" />
-                  <h3 className="font-bold text-sm text-[#071A3A]">Recall Practice</h3>
+                  <h3 className="font-bold text-sm text-[#10233F]">Recall Practice</h3>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#EAF2FF] text-[#124BCE]">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#EDF5FF] text-[#176FF5]">
                   {retrievalQueue.length}
                 </span>
               </div>
 
               <div className="space-y-2.5">
                 {retrievalQueue.length === 0 ? (
-                  <div className="p-4 rounded-2xl bg-gray-50 text-center text-xs text-gray-400">
+                  <div className="p-4 rounded-2xl bg-[#F8FAFD] text-center text-xs text-[#8A96A8]">
                     No recall items due.
                   </div>
                 ) : (
                   retrievalQueue.map(concept => (
                     <div 
                       key={concept.id}
-                      className="p-3.5 rounded-2xl bg-[#F7FAFF] border border-[#1769FF]/10 hover:border-[#1769FF]/30 transition-colors space-y-2"
+                      className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] hover:border-[#176FF5]/40 transition-colors space-y-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold text-xs text-[#071A3A] leading-snug">{concept.title}</h4>
+                        <h4 className="font-semibold text-xs text-[#10233F] leading-snug">{concept.title}</h4>
                         <ConceptStateBadge state={concept.state} />
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-[#607089] pt-1">
                         <span>{concept.recallSuccessCount} completed</span>
                         <button
                           onClick={() => onNavigate(`/app/retrieve/${concept.id}`)}
-                          className="font-bold text-[#124BCE] hover:underline flex items-center gap-1 cursor-pointer"
+                          className="font-bold text-[#176FF5] hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <span>Practice</span>
                           <ArrowRight className="w-3 h-3" />
@@ -355,11 +360,11 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
           {/* Column 2: Application Practice */}
           {(activeWorkTab === 'all' || activeWorkTab === 'apply') && (
-            <div className="p-5 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-3">
+            <div className="p-5 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-[0_8px_25px_rgba(30,70,120,0.03)] space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-2 text-amber-700">
                   <Compass className="w-4 h-4" />
-                  <h3 className="font-bold text-sm text-[#071A3A]">Application Tasks</h3>
+                  <h3 className="font-bold text-sm text-[#10233F]">Application Tasks</h3>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800">
                   {applicationQueue.length}
@@ -368,20 +373,20 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
               <div className="space-y-2.5">
                 {applicationQueue.length === 0 ? (
-                  <div className="p-4 rounded-2xl bg-gray-50 text-center text-xs text-gray-400">
+                  <div className="p-4 rounded-2xl bg-[#F8FAFD] text-center text-xs text-[#8A96A8]">
                     No application tasks pending.
                   </div>
                 ) : (
                   applicationQueue.map(concept => (
                     <div 
                       key={concept.id}
-                      className="p-3.5 rounded-2xl bg-[#F7FAFF] border border-amber-200/40 hover:border-amber-400 transition-colors space-y-2"
+                      className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-amber-200/40 hover:border-amber-400 transition-colors space-y-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold text-xs text-[#071A3A] leading-snug">{concept.title}</h4>
+                        <h4 className="font-semibold text-xs text-[#10233F] leading-snug">{concept.title}</h4>
                         <ConceptStateBadge state={concept.state} />
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-[#607089] pt-1">
                         <span>{concept.applicationSuccessCount} passed</span>
                         <button
                           onClick={() => onNavigate(`/app/apply/${concept.id}`)}
@@ -400,11 +405,11 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
           {/* Column 3: Spaced Reinforcement */}
           {(activeWorkTab === 'all' || activeWorkTab === 'reinforce') && (
-            <div className="p-5 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-3">
+            <div className="p-5 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-[0_8px_25px_rgba(30,70,120,0.03)] space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-2 text-teal-700">
                   <Layers className="w-4 h-4" />
-                  <h3 className="font-bold text-sm text-[#071A3A]">Spaced Review</h3>
+                  <h3 className="font-bold text-sm text-[#10233F]">Spaced Review</h3>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-800">
                   {reinforcementQueue.length}
@@ -413,20 +418,20 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
               <div className="space-y-2.5">
                 {reinforcementQueue.length === 0 ? (
-                  <div className="p-4 rounded-2xl bg-gray-50 text-center text-xs text-gray-400">
+                  <div className="p-4 rounded-2xl bg-[#F8FAFD] text-center text-xs text-[#8A96A8]">
                     No reviews due today.
                   </div>
                 ) : (
                   reinforcementQueue.map(concept => (
                     <div 
                       key={concept.id}
-                      className="p-3.5 rounded-2xl bg-[#F7FAFF] border border-teal-200/40 hover:border-teal-400 transition-colors space-y-2"
+                      className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-teal-200/40 hover:border-teal-400 transition-colors space-y-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold text-xs text-[#071A3A] leading-snug">{concept.title}</h4>
+                        <h4 className="font-semibold text-xs text-[#10233F] leading-snug">{concept.title}</h4>
                         <ConceptStateBadge state={concept.state} />
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-[#607089] pt-1">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-teal-600" />
                           Every {concept.reinforcementIntervalDays}d
@@ -449,15 +454,15 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
       </section>
 
       {/* 5. Daily Check-in & Activity */}
-      <section className="p-6 rounded-3xl bg-white border border-gray-100 shadow-2xs space-y-4">
+      <section className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.07)] shadow-xs space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-bold uppercase tracking-wider text-gray-400">
-            Recent Activity
+          <div className="text-xs font-bold uppercase tracking-wider text-[#8A96A8]">
+            Recent Cognitive Activity
           </div>
 
           <button
             onClick={() => onNavigate('/app/reflect')}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#EAF2FF] text-[#124BCE] hover:bg-[#124BCE] hover:text-white text-xs font-bold transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#EDF5FF] text-[#176FF5] hover:bg-[#176FF5] hover:text-white text-xs font-bold transition-all cursor-pointer"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Reflect</span>
@@ -465,23 +470,23 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div className="p-3.5 rounded-2xl bg-[#F7FAFF] border border-gray-100 flex items-center gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-semibold text-[#071A3A]">Hash Table Collisions</div>
-              <div className="text-[11px] text-gray-400">Recalled without notes</div>
+              <div className="font-semibold text-[#10233F]">Hash Table Collisions</div>
+              <div className="text-[11px] text-[#8A96A8]">Recalled without notes</div>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#F7FAFF] border border-gray-100 flex items-center gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
               <Compass className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-semibold text-[#071A3A]">Distributed Locking</div>
-              <div className="text-[11px] text-gray-400">Solved scenario challenge</div>
+              <div className="font-semibold text-[#10233F]">Distributed Locking</div>
+              <div className="text-[11px] text-[#8A96A8]">Solved scenario challenge</div>
             </div>
           </div>
         </div>

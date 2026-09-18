@@ -3,17 +3,10 @@ import {
   Compass, 
   ArrowRight, 
   ArrowLeft, 
-  CheckCircle2, 
   X, 
-  Sparkles, 
-  BookOpen, 
-  Repeat, 
-  Layers, 
-  BarChart3, 
   Lightbulb, 
   ChevronRight,
   BrainCircuit,
-  Eye,
   Target
 } from 'lucide-react';
 
@@ -140,22 +133,22 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#071A3A]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-[#10233F]/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-3xl max-w-2xl w-full border border-gray-100 shadow-2xl overflow-hidden relative"
+        className="bg-white rounded-3xl max-w-2xl w-full border border-[rgba(24,60,110,0.08)] shadow-[0_25px_70px_rgba(30,70,120,0.12)] overflow-hidden relative"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Header Bar */}
-        <div className="px-6 py-4 bg-gradient-to-r from-[#071A3A] to-[#0A2558] text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#124BCE] flex items-center justify-center text-white">
+        <div className="px-6 py-4.5 bg-white border-b border-[rgba(24,60,110,0.06)] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#EDF5FF] flex items-center justify-center text-[#176FF5]">
               <Compass className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#F4C542]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#176FF5]">
                 Platform Interactive Walkthrough
               </span>
-              <h2 className="text-sm font-bold font-heading text-white">
+              <h2 className="text-sm font-bold font-heading text-[#10233F]">
                 How LearnWise Works From Start to Finish
               </h2>
             </div>
@@ -163,7 +156,7 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-[#8A96A8] hover:text-[#10233F] hover:bg-[#F8FAFD] transition-colors cursor-pointer"
             aria-label="Close walkthrough"
           >
             <X className="w-5 h-5" />
@@ -171,8 +164,8 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
         </div>
 
         {/* Step Progress Indicators */}
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100 bg-[#F7FAFF]">
-          <div className="flex items-center justify-between gap-1 sm:gap-2">
+        <div className="px-6 pt-4 pb-3 border-b border-[rgba(24,60,110,0.05)] bg-[#F8FAFD]">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             {STEPS.map((s, idx) => {
               const isActive = idx === currentStepIndex;
               const isPast = idx < currentStepIndex;
@@ -186,15 +179,15 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
                     <div 
                       className={`h-1.5 w-full rounded-full transition-all ${
                         isActive 
-                          ? 'bg-[#124BCE]' 
+                          ? 'bg-[#176FF5]' 
                           : isPast 
-                            ? 'bg-emerald-500' 
+                            ? 'bg-[#20B26B]' 
                             : 'bg-gray-200 group-hover:bg-gray-300'
                       }`}
                     />
                   </div>
                   <span className={`text-[10px] font-bold tracking-tight text-center hidden sm:block ${
-                    isActive ? 'text-[#124BCE]' : isPast ? 'text-emerald-700' : 'text-gray-400'
+                    isActive ? 'text-[#176FF5]' : isPast ? 'text-[#20B26B]' : 'text-[#8A96A8]'
                   }`}>
                     0{s.stepNumber} {s.id === 'diagnose' ? 'Diagnose' : s.id === 'goals-capture' ? 'Capture' : s.id === 'retrieval' ? 'Recall' : s.id === 'apply' ? 'Apply' : 'Track'}
                   </span>
@@ -205,27 +198,27 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
         </div>
 
         {/* Content Body */}
-        <div className="p-6 sm:p-8 space-y-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF2FF] text-[#124BCE] text-xs font-bold uppercase tracking-wider">
+        <div className="p-6 sm:p-8 space-y-5">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EDF5FF] text-[#176FF5] text-xs font-bold uppercase tracking-wider">
               <span>{currentStep.stageName}</span>
             </div>
             
-            <h3 className="text-xl sm:text-2xl font-bold font-heading text-[#071A3A] tracking-tight">
+            <h3 className="text-xl sm:text-2xl font-bold font-heading text-[#10233F] tracking-tight">
               {currentStep.title}
             </h3>
             
-            <p className="text-xs sm:text-sm font-medium text-gray-500">
+            <p className="text-xs sm:text-sm text-[#607089]">
               {currentStep.subtitle}
             </p>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#F7FAFF] border border-gray-100 text-xs sm:text-sm text-gray-700 leading-relaxed">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] text-xs sm:text-sm text-[#607089] leading-relaxed">
             {currentStep.explanation}
           </div>
 
           {/* Golden Rule Callout */}
-          <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-3">
+          <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/60 flex items-start gap-3">
             <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-950 font-medium leading-relaxed">
               {currentStep.keyRule}
@@ -233,13 +226,13 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
           </div>
 
           {/* Suggested Direct Route Shortcut */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F1F5FD] border border-[#1769FF]/15">
-            <div className="text-xs text-gray-600">
-              Ready to try this step in the app?
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#EDF5FF]/50 border border-[#176FF5]/15">
+            <div className="text-xs text-[#607089]">
+              Ready to explore this step directly in the app?
             </div>
             <button
               onClick={handleJumpToRoute}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#124BCE] hover:text-[#1769FF] underline cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#176FF5] hover:text-[#135CD4] underline cursor-pointer"
             >
               <span>{currentStep.actionText}</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -248,28 +241,28 @@ export const PlatformWalkthroughModal: React.FC<PlatformWalkthroughModalProps> =
         </div>
 
         {/* Bottom Actions */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#FAFBFD] border-t border-[rgba(24,60,110,0.06)] flex items-center justify-between">
           <button
             onClick={handlePrev}
             disabled={isFirst}
             className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
               isFirst 
-                ? 'opacity-30 cursor-not-allowed text-gray-400' 
-                : 'text-gray-700 hover:bg-white hover:shadow-2xs cursor-pointer'
+                ? 'opacity-30 cursor-not-allowed text-[#8A96A8]' 
+                : 'text-[#607089] hover:bg-white hover:text-[#10233F] cursor-pointer'
             }`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Previous</span>
           </button>
 
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-[#8A96A8] font-medium">
             {currentStepIndex + 1} of {STEPS.length}
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleNext}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+              className="btn-primary-glow inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               <span>{isLast ? 'Complete Tour' : 'Next Step'}</span>
               <ArrowRight className="w-3.5 h-3.5" />

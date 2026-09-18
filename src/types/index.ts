@@ -25,11 +25,25 @@ export interface PlsfrDimension {
   name: string;
   description: string;
   score: number; // 0-100
-  confidence: number; // 0-100
+  confidence: number; // 0-100 numeric
+  confidenceBand?: 'Low' | 'Moderate' | 'High'; // Section H confidence rating
   evidenceCount: number;
   strengthLevel: 'Developing' | 'Emerging' | 'Functional' | 'Strong' | 'Highly Developed';
   riskLevel: 'Low' | 'Moderate' | 'Elevated' | 'Critical';
+  evidenceBreakdown?: {
+    selfReportCount: number;
+    scenarioCount: number;
+    performanceCount: number;
+    contradictions: string[];
+  };
 }
+
+export type EvidenceTier = 
+  | 'Strong' 
+  | 'Moderate' 
+  | 'Emerging' 
+  | 'Practitioner-derived' 
+  | 'Contested';
 
 export type QuestionType = 
   | 'self_report' 
@@ -39,13 +53,16 @@ export type QuestionType =
   | 'concept_relationship' 
   | 'application' 
   | 'error_diagnosis' 
-  | 'metacognitive';
+  | 'metacognitive'
+  | 'mini_performance'
+  | 'preference_check';
 
 export interface DiagnosticOption {
   id: string;
   text: string;
   scoreImpact: Record<PlsfrDimensionKey, number>; // Points added or weighted
   diagnosticInsight: string;
+  behaviorType?: 'passive' | 'active_retrieval' | 'structured' | 'avoidant' | 'generative';
 }
 
 export interface DiagnosticQuestion {
@@ -59,6 +76,9 @@ export interface DiagnosticQuestion {
   correctOptionId?: string; // For performance/recall checks
   explanation: string;
   weight: number;
+  evidenceTier?: EvidenceTier;
+  citation?: string;
+  isMiniPerformance?: boolean;
 }
 
 export interface DiagnosticResponse {
@@ -67,6 +87,70 @@ export interface DiagnosticResponse {
   confidenceRating?: 1 | 2 | 3 | 4 | 5; // 1: Very unsure, 5: Very confident
   responseTimeSeconds?: number;
   evidenceType: 'declared' | 'observed' | 'performance';
+}
+
+export interface DiagnosticContradiction {
+  title: string;
+  description: string;
+  scientificInsight: string;
+  citation: string;
+}
+
+export interface TargetedInterventionItem {
+  rank: number;
+  pattern: string;
+  interventionName: string;
+  targetPillar: PlsfrDimensionKey;
+  why: string; // Scientific mechanism with citation
+  forWhom: string;
+  when: string;
+  how: string;
+  measure: string; // Concrete verifiable metric
+}
+
+export interface DiagnosticReport {
+  generatedAt: string;
+  reassessmentDate: string;
+  overallConfidence: 'Low' | 'Moderate' | 'High';
+  executiveSummary: string;
+  primaryBottleneck: {
+    key: PlsfrDimensionKey;
+    name: string;
+    score: number;
+    confidenceBand: 'Low' | 'Moderate' | 'High';
+    rationale: string;
+  };
+  secondaryBottleneck?: {
+    key: PlsfrDimensionKey;
+    name: string;
+    score: number;
+    confidenceBand: 'Low' | 'Moderate' | 'High';
+    rationale: string;
+  };
+  leverageableStrength: {
+    key: PlsfrDimensionKey;
+    name: string;
+    score: number;
+    howToLeverage: string;
+  };
+  contradictionsDetected: DiagnosticContradiction[];
+  hiddenCrossPillarPatterns: {
+    name: string;
+    pillarsInvolved: string[];
+    description: string;
+    fix: string;
+  }[];
+  learningStyleDebunkInsight: {
+    statedPreference: string;
+    evidenceBasedStrategy: string;
+    pashlerScienceNote: string;
+  };
+  priorityInterventions: TargetedInterventionItem[];
+  recommendedAIRoles: {
+    roleName: string;
+    tagline: string;
+    whyThisRole: string;
+  }[];
 }
 
 export interface LearnerProfile {

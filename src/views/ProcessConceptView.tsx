@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { useLearner } from '../context/LearnerContext';
 import { ConceptStateBadge } from '../components/ConceptStateBadge';
+import { VisualCueTooltip } from '../components/VisualCueTooltip';
 import { 
   Sparkles, 
-  BrainCircuit, 
-  ArrowRight, 
   CheckCircle2, 
   Lightbulb, 
-  HelpCircle, 
   Layers,
-  Save
+  Save,
+  ArrowRight
 } from 'lucide-react';
 
 interface ProcessConceptViewProps {
@@ -25,19 +24,22 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
   const [invariants, setInvariants] = useState('');
   const [analogy, setAnalogy] = useState(
     concept?.title?.includes('Binary Search')
-      ? 'Like looking up a student name in a sorted UNILAG departmental attendance register by opening right in the middle, rather than flipping every single page from page 1.'
+      ? 'Like looking up a student name in a sorted departmental register by opening right in the middle, rather than flipping every single page from page 1.'
       : ''
   );
   const [prerequisites, setPrerequisites] = useState(concept?.prerequisites?.join(', ') || '');
-  const [testQuestion, setTestQuestion] = useState('');
+  const [, setTestQuestion] = useState('');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   if (!concept) {
     return (
-      <div className="max-w-4xl mx-auto p-8 text-center">
-        <h2 className="text-lg font-bold">Concept not found</h2>
-        <button onClick={() => onNavigate('/app/today')} className="mt-2 text-xs font-bold text-[#124BCE]">
+      <div className="max-w-4xl mx-auto p-8 text-center space-y-3">
+        <h2 className="text-lg font-bold text-[#10233F]">Concept not found</h2>
+        <button 
+          onClick={() => onNavigate('/app/today')} 
+          className="btn-primary-glow px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+        >
           Return to Today's Queue
         </button>
       </div>
@@ -69,7 +71,7 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
     } catch (err) {
       console.warn('Using local conceptual breakdown scaffold:', err);
       setOwnWords(`The fundamental idea of ${concept.title} is to eliminate redundant work by breaking problem instances down into verifiable invariants.`);
-      setAnalogy(`Imagine allocating diesel fuel to university hostel generators: you prioritize high-draw loads during study hours and throttle idle circuits.`);
+      setAnalogy(`Imagine allocating fuel to campus power generators: you prioritize high-draw labs during peak hours and throttle idle circuits.`);
       setInvariants(`1. Preconditions must be strictly validated. 2. Operational state must remain deterministic.`);
     } finally {
       setIsProcessingAI(false);
@@ -78,7 +80,6 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
 
   const handleSaveProcessing = (e: React.FormEvent) => {
     e.preventDefault();
-    // Update concept state to Processed
     updateConceptState(concept.id, 'Processed');
     setSavedSuccess(true);
   };
@@ -86,40 +87,48 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(24,60,110,0.06)] pb-5">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider mb-1">
-            <Layers className="w-3.5 h-3.5" />
-            <span>Active Concept Processing Studio</span>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EDF5FF] text-[#176FF5] text-xs font-bold uppercase tracking-wider">
+              <Layers className="w-3.5 h-3.5" />
+              <span>Step 2: Concept Schema Studio</span>
+            </div>
+            <VisualCueTooltip
+              badgeText="Why process schemas?"
+              title="Schema Theory Encoding"
+              description="The brain cannot retain isolated facts without an anchoring mental schema. Articulating core invariants and analogies creates cognitive pegs for long-term memory retrieval."
+              ruleOfThumb="If you cannot explain the mechanism in 2 plain sentences, you are merely memorizing words."
+            />
           </div>
-          <h1 className="text-2xl font-bold font-heading text-[#071A3A]">
+          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#10233F] tracking-tight">
             Mental Model Breakdown: {concept.title}
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Transform passive lecture notes into deep relational schemas before testing recall.
+          <p className="text-xs sm:text-sm text-[#607089] mt-0.5">
+            Transform passive lecture notes into deep relational schemas before closed-book recall.
           </p>
         </div>
 
         <button
           onClick={handleAIBreakdown}
           disabled={isProcessingAI}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#071A3A] hover:bg-[#124BCE] text-white text-xs font-bold shadow-md transition-all cursor-pointer self-start sm:self-auto"
+          className="btn-primary-glow flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer self-start sm:self-auto"
         >
-          <Sparkles className="w-4 h-4 text-[#F4C542]" />
+          <Sparkles className="w-4 h-4 text-amber-300" />
           <span>{isProcessingAI ? 'Analyzing Concept...' : 'Scaffold with AI Architect'}</span>
         </button>
       </div>
 
       {/* Target Concept Details */}
-      <div className="p-5 rounded-2xl bg-white border border-[#1769FF]/15 shadow-xs space-y-3">
+      <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-[0_8px_30px_rgba(30,70,120,0.04)] space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase text-[#124BCE]">{concept.domain}</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-[#176FF5]">{concept.domain}</span>
           <ConceptStateBadge state={concept.state} showProgressChain />
         </div>
         <div>
-          <h3 className="text-base font-bold text-[#071A3A]">{concept.title}</h3>
-          <p className="text-xs text-gray-600 mt-1 italic bg-gray-50 p-2.5 rounded-xl border border-gray-200">
-            <strong>Standard Definition:</strong> {concept.definition}
+          <h3 className="text-lg font-bold font-heading text-[#10233F]">{concept.title}</h3>
+          <p className="text-xs text-[#607089] mt-2 italic bg-[#F8FAFD] p-3 rounded-2xl border border-[rgba(24,60,110,0.06)] leading-relaxed">
+            <strong className="text-[#10233F] not-italic">Standard Academic Definition:</strong> {concept.definition}
           </p>
         </div>
       </div>
@@ -127,73 +136,73 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
       {/* Processing Form */}
       <form onSubmit={handleSaveProcessing} className="space-y-6">
         {/* 1. Plain English / Own Words */}
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 space-y-2">
+        <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-xs space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-[#071A3A] uppercase tracking-wide">
+            <label className="block text-xs font-bold text-[#10233F] uppercase tracking-wide">
               1. Explain in Plain Words (The "Feynman" Articulation)
             </label>
-            <span className="text-[11px] text-gray-400">Explain as if teaching an SS1 student</span>
+            <span className="text-[11px] text-[#8A96A8]">Explain as if teaching a younger peer</span>
           </div>
           <textarea
             rows={3}
             value={ownWords}
             onChange={(e) => setOwnWords(e.target.value)}
             placeholder="Strip all academic jargon. What is the fundamental mechanism happening here?"
-            className="w-full p-3 rounded-xl border border-gray-300 text-xs sm:text-sm text-[#071A3A] focus:ring-2 focus:ring-[#124BCE]"
+            className="w-full p-3.5 rounded-2xl border border-[rgba(24,60,110,0.12)] text-xs sm:text-sm text-[#10233F] placeholder-[#8A96A8] focus:ring-2 focus:ring-[#176FF5] focus:outline-hidden"
           />
         </div>
 
-        {/* 2. Grounded Nigerian Real-World Analogy */}
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 space-y-2">
+        {/* 2. Grounded Real-World Analogy */}
+        <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-xs space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-[#071A3A] uppercase tracking-wide flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-[#F4C542]" />
-              2. Grounded Real-World Analogy
+            <label className="block text-xs font-bold text-[#10233F] uppercase tracking-wide flex items-center gap-1.5">
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              <span>2. Grounded Real-World Analogy</span>
             </label>
-            <span className="text-[11px] text-gray-400">Anchors abstract concepts into physical models</span>
+            <span className="text-[11px] text-[#8A96A8]">Anchors abstract ideas to physical systems</span>
           </div>
           <textarea
             rows={3}
             value={analogy}
             onChange={(e) => setAnalogy(e.target.value)}
-            placeholder="e.g. A Lagos Danfo conductor queuing change; a hostel water tank with a float valve; a bank queue during cash crunch..."
-            className="w-full p-3 rounded-xl border border-gray-300 text-xs sm:text-sm text-[#071A3A] focus:ring-2 focus:ring-[#124BCE]"
+            placeholder="e.g. A busy conductor calculating change; a gravity feed water tank with a float valve..."
+            className="w-full p-3.5 rounded-2xl border border-[rgba(24,60,110,0.12)] text-xs sm:text-sm text-[#10233F] placeholder-[#8A96A8] focus:ring-2 focus:ring-[#176FF5] focus:outline-hidden"
           />
         </div>
 
         {/* 3. Non-Negotiable Invariants */}
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 space-y-2">
+        <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-xs space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-[#071A3A] uppercase tracking-wide">
-              3. Non-Negotiable Invariants & Rules
+            <label className="block text-xs font-bold text-[#10233F] uppercase tracking-wide">
+              3. Non-Negotiable Invariants & Boundary Rules
             </label>
-            <span className="text-[11px] text-gray-400">What conditions must strictly hold true?</span>
+            <span className="text-[11px] text-[#8A96A8]">What conditions must strictly hold true?</span>
           </div>
           <textarea
             rows={3}
             value={invariants}
             onChange={(e) => setInvariants(e.target.value)}
-            placeholder="e.g. In Binary Search, the collection MUST already be sorted. If unsorted, O(log N) claim is completely invalid."
-            className="w-full p-3 rounded-xl border border-gray-300 text-xs sm:text-sm text-[#071A3A] focus:ring-2 focus:ring-[#124BCE]"
+            placeholder="e.g. In Binary Search, the elements MUST already be ordered. If unordered, O(log N) is completely invalidated."
+            className="w-full p-3.5 rounded-2xl border border-[rgba(24,60,110,0.12)] text-xs sm:text-sm text-[#10233F] placeholder-[#8A96A8] focus:ring-2 focus:ring-[#176FF5] focus:outline-hidden"
           />
         </div>
 
         {/* 4. Prerequisite Dependencies */}
-        <div className="p-5 rounded-2xl bg-white border border-gray-200 space-y-2">
-          <label className="block text-xs font-bold text-[#071A3A] uppercase tracking-wide">
+        <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-xs space-y-2.5">
+          <label className="block text-xs font-bold text-[#10233F] uppercase tracking-wide">
             4. Prerequisite Concepts (Comma-separated)
           </label>
           <input
             type="text"
             value={prerequisites}
             onChange={(e) => setPrerequisites(e.target.value)}
-            placeholder="e.g. Arrays, Logarithms, Divide and Conquer, Monotonic functions"
-            className="w-full p-3 rounded-xl border border-gray-300 text-xs text-[#071A3A] focus:ring-2 focus:ring-[#124BCE]"
+            placeholder="e.g. Indexed Arrays, Logarithmic scaling, Monotonic invariants"
+            className="w-full p-3.5 rounded-2xl border border-[rgba(24,60,110,0.12)] text-xs sm:text-sm text-[#10233F] placeholder-[#8A96A8] focus:ring-2 focus:ring-[#176FF5] focus:outline-hidden"
           />
         </div>
 
         {/* Save & Transition */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-200">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[rgba(24,60,110,0.06)]">
           {savedSuccess && (
             <div className="text-xs text-emerald-700 font-bold flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -204,7 +213,7 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
           <div className="flex items-center gap-3 ml-auto">
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer"
+              className="btn-primary-glow flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>Save Schema & Update State</span>
@@ -213,9 +222,10 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
             <button
               type="button"
               onClick={() => onNavigate(`/app/retrieve/${concept.id}`)}
-              className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold border border-purple-200 cursor-pointer"
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#EDF5FF] hover:bg-[#DCEBFF] text-[#176FF5] text-xs sm:text-sm font-bold border border-[#176FF5]/20 cursor-pointer transition-colors"
             >
-              <span>Test Recall Now →</span>
+              <span>Test Recall Now</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
