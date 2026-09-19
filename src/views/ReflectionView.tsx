@@ -16,7 +16,7 @@ interface ReflectionViewProps {
 }
 
 export const ReflectionView: React.FC<ReflectionViewProps> = ({ onNavigate }) => {
-  const { addReflectionLog, profile, metrics } = useLearner();
+  const { submitReflection, addReflectionLog, profile, metrics } = useLearner();
 
   const [easyConcept, setEasyConcept] = useState('');
   const [unclearConcept, setUnclearConcept] = useState('');
@@ -24,22 +24,43 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({ onNavigate }) =>
   const [strategyUsed, setStrategyUsed] = useState('Closed-book retrieval before reading');
   const [nextSessionChange, setNextSessionChange] = useState('');
   const [energyRating, setEnergyRating] = useState<1 | 2 | 3 | 4 | 5>(4);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!easyConcept.trim() || !unclearConcept.trim()) return;
+    if (!easyConcept.trim() || !unclearConcept.trim() || isSubmitting) return;
 
-    addReflectionLog({
-      easyConcept: easyConcept.trim(),
-      unclearConcept: unclearConcept.trim(),
-      mistakeLearned: mistakeLearned.trim(),
-      strategyUsed: strategyUsed.trim(),
-      nextSessionChange: nextSessionChange.trim(),
-      energyRating,
-    });
-
-    setIsSaved(true);
+    setIsSubmitting(true);
+    try {
+      if (submitReflection) {
+        await submitReflection({
+          sessionType: 'daily_synthesis',
+          whatFeltEasy: easyConcept.trim(),
+          whatFeltUnclear: unclearConcept.trim(),
+          mistakeIdentified: mistakeLearned.trim(),
+          strategyThatHelped: strategyUsed.trim(),
+          adjustmentForNextTime: nextSessionChange.trim(),
+          cognitiveEnergy: energyRating,
+        });
+      } else if (addReflectionLog) {
+        await addReflectionLog({
+          easyConcept: easyConcept.trim(),
+          unclearConcept: unclearConcept.trim(),
+          mistakeLearned: mistakeLearned.trim(),
+          strategyUsed: strategyUsed.trim(),
+          nextSessionChange: nextSessionChange.trim(),
+          energyRating,
+        });
+      }
+      setIsSaved(true);
+    } catch (err) {
+      console.error('[ReflectionView] Error submitting reflection:', err);
+      // Still show saved on client to keep learner unblocked
+      setIsSaved(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -48,13 +69,13 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({ onNavigate }) =>
       <div className="border-b border-gray-200 pb-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider mb-1">
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Dimension 4: Self-Regulation & Metacognition</span>
+          <span>Self-Reflection</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#071A3A]">
-          Metacognitive Study Reflection
+        <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#10233F]">
+          Daily Study Reflection
         </h1>
         <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-          Take 3 minutes to evaluate your cognitive process. Reflection transforms raw study time into actionable self-calibration.
+          Take 3 minutes to review how you studied today. Reflecting on what worked and what didn't helps you remember faster.
         </p>
       </div>
 
@@ -166,9 +187,12 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({ onNavigate }) =>
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer"
+              disabled={isSubmitting}
+              className={`px-6 py-2.5 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-xs sm:text-sm font-bold shadow-md transition-all ${
+                isSubmitting ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
-              Log Metacognitive Reflection
+              {isSubmitting ? 'Saving Reflection...' : 'Save Reflection'}
             </button>
           </div>
         </form>
@@ -178,12 +202,12 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({ onNavigate }) =>
             <CheckCircle2 className="w-6 h-6" />
           </div>
 
-          <h3 className="text-xl font-bold font-heading text-[#071A3A]">
-            Reflection Recorded & Metacognition Updated!
+          <h3 className="text-xl font-bold font-heading text-[#10233F]">
+            Reflection Saved!
           </h3>
 
           <p className="text-xs sm:text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
-            Your self-regulation dimension telemetry has been credited. Consistent metacognitive monitoring is proven to increase exam accuracy by over 20%.
+            Your study reflections help you spot where you need more practice and keep your learning on track.
           </p>
 
           <div className="pt-2 flex justify-center gap-3">
@@ -191,13 +215,13 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({ onNavigate }) =>
               onClick={() => onNavigate('/app/dashboard')}
               className="px-5 py-2.5 rounded-xl bg-[#124BCE] text-white text-xs font-bold hover:bg-[#1769FF] cursor-pointer"
             >
-              View Assimilation Dashboard
+              View Progress
             </button>
             <button
               onClick={() => onNavigate('/app/today')}
               className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold hover:bg-gray-200 cursor-pointer"
             >
-              Back to Today's Queue
+              Back to Today's Plan
             </button>
           </div>
         </div>

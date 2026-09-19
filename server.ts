@@ -37,57 +37,71 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// Helper for default learning strategy
+function buildDefaultStrategy(params: {
+  goal?: any;
+  learnerProfile?: any;
+  bottlenecks?: string[];
+  availableHours?: number;
+}) {
+  const { goal, learnerProfile, bottlenecks, availableHours } = params;
+  const goalTitle = goal?.title || "Target Goal";
+  return {
+    title: `Adaptive Mastery Path for ${goalTitle}`,
+    rationale: `Tailored for ${learnerProfile?.field_of_study || "your study context"} with PLSFR+ adjustments. Addressing detected bottlenecks: ${bottlenecks?.join(", ") || "Active retrieval & application balance"}.`,
+    phases: [
+      {
+        phase: 1,
+        name: "Foundational Schemas & Encoding",
+        duration: "Week 1",
+        focus: "Deconstruct core primitives into concrete mental models",
+        concepts: ["Core Definitions & Constraints", "Fundamental Architecture", "Prerequisites Review"],
+        activities: ["Own-words formulation", "Prerequisite gap identification", "Diagnostic self-test"],
+      },
+      {
+        phase: 2,
+        name: "Active Retrieval & Reconstructive Recall",
+        duration: "Week 2",
+        focus: "Closed-book reconstruction to transition from recognition to recall",
+        concepts: ["Key Mechanics & Rules", "Common Error Patterns", "Comparative Analysis"],
+        activities: ["Spaced flash retrieval", "Error diagnosis drills", "Confidence calibration"],
+      },
+      {
+        phase: 3,
+        name: "Contextual Application & Problem Solving",
+        duration: "Week 3",
+        focus: "Deploy principles in unfamiliar scenarios with varying constraints",
+        concepts: ["Scenario Simulation", "Boundary Cases", "Synthesis across topics"],
+        activities: ["Authentic case challenge", "Reasoning critique", "Self-explanation of trade-offs"],
+      },
+      {
+        phase: 4,
+        name: "Consolidation & Autonomous Transfer",
+        duration: "Week 4",
+        focus: "Interleaved practice, meta-reflection, and independent problem synthesis",
+        concepts: ["Comprehensive Retrieval", "Far Transfer Scenarios", "System Audit"],
+        activities: ["Mixed retrieval challenge", "Learning system reflection", "Intervention review"],
+      },
+    ],
+    weeklyHoursBreakdown: `${availableHours || 6} hours/week allocated: 35% Retrieval, 35% Application, 20% Encoding/Capture, 10% Reflection.`,
+    successIndicator: "Consistent >75% performance on closed-book transfer challenges with well-calibrated confidence.",
+    stuckAction: "Deploy the AI Learning Coach to receive progressive Socratic hints without bypassing cognitive effort.",
+  };
+}
+
 // 1. AI Learning Architect: Generates tailored learning path & strategy based on PLSFR+ profile and learning goal
 app.post("/api/ai/learning-path", async (req, res) => {
+  const { goal, learnerProfile, plsfrScores, bottlenecks, availableHours, deadline } = req.body;
+  const fallbackStrategy = buildDefaultStrategy({ goal, learnerProfile, bottlenecks, availableHours });
+
   try {
-    const { goal, learnerProfile, plsfrScores, bottlenecks, availableHours, deadline } = req.body;
     const ai = getGeminiClient();
 
     if (!ai) {
       return res.json({
         isAiGenerated: false,
         source: "rule-based-engine",
-        strategy: {
-          title: `Adaptive Mastery Path for ${goal?.title || "Target Goal"}`,
-          rationale: `Tailored for ${learnerProfile?.field_of_study || "your study context"} with PLSFR+ adjustments. Addressing detected bottlenecks: ${bottlenecks?.join(", ") || "Active retrieval & application balance"}.`,
-          phases: [
-            {
-              phase: 1,
-              name: "Foundational Schemas & Encoding",
-              duration: "Week 1",
-              focus: "Deconstruct core primitives into concrete mental models",
-              concepts: ["Core Definitions & Constraints", "Fundamental Architecture", "Prerequisites Review"],
-              activities: ["Own-words formulation", "Prerequisite gap identification", "Diagnostic self-test"],
-            },
-            {
-              phase: 2,
-              name: "Active Retrieval & Reconstructive Recall",
-              duration: "Week 2",
-              focus: "Closed-book reconstruction to transition from recognition to recall",
-              concepts: ["Key Mechanics & Rules", "Common Error Patterns", "Comparative Analysis"],
-              activities: ["Spaced flash retrieval", "Error diagnosis drills", "Confidence calibration"],
-            },
-            {
-              phase: 3,
-              name: "Contextual Application & Problem Solving",
-              duration: "Week 3",
-              focus: "Deploy principles in unfamiliar scenarios with varying constraints",
-              concepts: ["Scenario Simulation", "Boundary Cases", "Synthesis across topics"],
-              activities: ["Authentic case challenge", "Reasoning critique", "Self-explanation of trade-offs"],
-            },
-            {
-              phase: 4,
-              name: "Consolidation & Autonomous Transfer",
-              duration: "Week 4",
-              focus: "Interleaved practice, meta-reflection, and independent problem synthesis",
-              concepts: ["Comprehensive Retrieval", "Far Transfer Scenarios", "System Audit"],
-              activities: ["Mixed retrieval challenge", "Learning system reflection", "Intervention review"],
-            },
-          ],
-          weeklyHoursBreakdown: `${availableHours || 6} hours/week allocated: 35% Retrieval, 35% Application, 20% Encoding/Capture, 10% Reflection.`,
-          successIndicator: "Consistent >75% performance on closed-book transfer challenges with well-calibrated confidence.",
-          stuckAction: "Deploy the AI Learning Coach to receive progressive Socratic hints without bypassing cognitive effort.",
-        },
+        strategy: fallbackStrategy,
       });
     }
 
@@ -135,36 +149,41 @@ Format as JSON:
       strategy: parsed,
     });
   } catch (err: any) {
-    console.error("AI Learning Architect error:", err);
-    return res.status(500).json({ error: "Failed to generate learning strategy", details: err?.message });
+    console.warn("AI Learning Architect unavailable (high demand / 503). Serving rule-based strategy:", err?.message || err);
+    return res.json({
+      isAiGenerated: false,
+      source: "rule-based-fallback",
+      strategy: fallbackStrategy,
+    });
   }
 });
 
 // 2. AI Learning Coach: Socratic guidance that avoids dependency
 app.post("/api/ai/coach", async (req, res) => {
-  try {
-    const { studentMessage, currentConcept, recentAttempt, chatHistory } = req.body;
-    const ai = getGeminiClient();
-
-    if (!ai) {
-      // Deterministic Socratic coach response
-      return res.json({
-        isAiGenerated: false,
-        source: "rule-based-coach",
-        response: `Let's break this down together without simply giving away the solution. 
+  const { studentMessage, currentConcept, recentAttempt, chatHistory } = req.body;
+  const fallbackCoachResponse = {
+    isAiGenerated: false,
+    source: "rule-based-coach",
+    response: `Let's break this down together without simply giving away the solution. 
 For "${currentConcept?.title || "this concept"}", notice what happened in your last attempt: ${
-          recentAttempt?.errorType
-            ? `you encountered a ${recentAttempt.errorType.replace("_", " ")}.`
-            : "you hesitated on the core principle."
-        }
+      recentAttempt?.errorType
+        ? `you encountered a ${recentAttempt.errorType.replace("_", " ")}.`
+        : "you hesitated on the core principle."
+    }
 
 Before we look at the complete answer:
 1. In your own words, what is the primary condition or relationship this concept relies on?
 2. If you remove the complex details, what simple analogy would explain what is happening here?
 
 Take a moment to draft your reasoning first!`,
-        suggestedHint: "Consider checking what happens at the boundary condition or reviewing the prerequisite definitions.",
-      });
+    suggestedHint: "Consider checking what happens at the boundary condition or reviewing the prerequisite definitions.",
+  };
+
+  try {
+    const ai = getGeminiClient();
+
+    if (!ai) {
+      return res.json(fallbackCoachResponse);
     }
 
     const systemInstruction = `You are the LearnWise AI Learning Coach.
@@ -195,32 +214,34 @@ Respond as the AI Learning Coach adhering to the anti-dependency mandate. Provid
       response: response.text,
     });
   } catch (err: any) {
-    console.error("AI Coach error:", err);
-    return res.status(500).json({ error: "Coach service error", details: err?.message });
+    console.warn("AI Coach unavailable (high demand / 503). Serving rule-based guidance:", err?.message || err);
+    return res.json(fallbackCoachResponse);
   }
 });
 
 // 3. AI Learning Analyst: Analyzes actual data trends and bottleneck resolution
 app.post("/api/ai/analyst", async (req, res) => {
+  const { performanceHistory, plsfrScores, sessionMetrics } = req.body;
+  const fallbackAnalysis = {
+    isAiGenerated: false,
+    source: "rule-based-analyst",
+    analysis: {
+      headline: "Retrieval consistency is strengthening, but application transfer requires reinforcement.",
+      findings: [
+        "Your closed-book recall accuracy increased by 14% over your last 5 sessions.",
+        "Confidence calibration shows slight overconfidence when recalling familiar definitions without problem-solving constraints.",
+        "Spaced review completion has eliminated short-term memory decay on foundational concepts.",
+      ],
+      bottleneckStatus: "Active Retrieval is functional (68/100). The current primary constraint is Contextual Transfer (44/100).",
+      nextActionRecommendation: "Complete 2 application challenges under varied scenarios before capturing any new syllabus units.",
+    },
+  };
+
   try {
-    const { performanceHistory, plsfrScores, sessionMetrics } = req.body;
     const ai = getGeminiClient();
 
     if (!ai) {
-      return res.json({
-        isAiGenerated: false,
-        source: "rule-based-analyst",
-        analysis: {
-          headline: "Retrieval consistency is strengthening, but application transfer requires reinforcement.",
-          findings: [
-            "Your closed-book recall accuracy increased by 14% over your last 5 sessions.",
-            "Confidence calibration shows slight overconfidence when recalling familiar definitions without problem-solving constraints.",
-            "Spaced review completion has eliminated short-term memory decay on foundational concepts.",
-          ],
-          bottleneckStatus: "Active Retrieval is functional (68/100). The current primary constraint is Contextual Transfer (44/100).",
-          nextActionRecommendation: "Complete 2 application challenges under varied scenarios before capturing any new syllabus units.",
-        },
-      });
+      return res.json(fallbackAnalysis);
     }
 
     const prompt = `You are the LearnWise AI Learning Analyst.
@@ -253,32 +274,34 @@ Return JSON:
       analysis: JSON.parse(response.text || "{}"),
     });
   } catch (err: any) {
-    console.error("AI Analyst error:", err);
-    return res.status(500).json({ error: "Analyst error", details: err?.message });
+    console.warn("AI Analyst unavailable (high demand / 503). Serving rule-based analysis:", err?.message || err);
+    return res.json(fallbackAnalysis);
   }
 });
 
 // 4. AI Application Challenge Generator: Creates authentic scenario-based challenges for concepts
 app.post("/api/ai/application-challenge", async (req, res) => {
+  const { concept, domain, difficulty } = req.body;
+  const fallbackChallenge = {
+    isAiGenerated: false,
+    source: "rule-based-challenge",
+    challenge: {
+      scenario: `You are consulting for an institution in Lagos that needs to solve a real-world problem involving ${concept?.title || "this principle"}. A sudden constraint occurs: resources are halved and unexpected traffic surges by 300%.`,
+      taskPrompt: `How would you adapt your application of ${concept?.title || "this concept"} to maintain reliability without violating system constraints? Explain the trade-offs.`,
+      evaluationCriteria: [
+        "Clear identification of governing constraints",
+        "Correct application of underlying principle (not just definition)",
+        "Reasoned analysis of side-effects and alternatives",
+      ],
+      sampleProficientApproach: "A proficient response identifies the specific bottleneck, explains why naive approaches fail, and applies the principle's core invariants.",
+    },
+  };
+
   try {
-    const { concept, domain, difficulty } = req.body;
     const ai = getGeminiClient();
 
     if (!ai) {
-      return res.json({
-        isAiGenerated: false,
-        source: "rule-based-challenge",
-        challenge: {
-          scenario: `You are consulting for an institution in Lagos that needs to solve a real-world problem involving ${concept?.title || "this principle"}. A sudden constraint occurs: resources are halved and unexpected traffic surges by 300%.`,
-          taskPrompt: `How would you adapt your application of ${concept?.title || "this concept"} to maintain reliability without violating system constraints? Explain the trade-offs.`,
-          evaluationCriteria: [
-            "Clear identification of governing constraints",
-            "Correct application of underlying principle (not just definition)",
-            "Reasoned analysis of side-effects and alternatives",
-          ],
-          sampleProficientApproach: "A proficient response identifies the specific bottleneck, explains why naive approaches fail, and applies the principle's core invariants.",
-        },
-      });
+      return res.json(fallbackChallenge);
     }
 
     const prompt = `Create an authentic application challenge for the following concept:
@@ -310,29 +333,31 @@ Return JSON:
       challenge: JSON.parse(response.text || "{}"),
     });
   } catch (err: any) {
-    console.error("Application challenge error:", err);
-    return res.status(500).json({ error: "Challenge generation failed", details: err?.message });
+    console.warn("Application challenge unavailable (high demand / 503). Serving rule-based challenge:", err?.message || err);
+    return res.json(fallbackChallenge);
   }
 });
 
 // 5. Concept Processing: Generates analogies, prerequisite mapping, and mental models
 app.post("/api/ai/concept-process", async (req, res) => {
+  const { rawContent, title, domain } = req.body;
+  const fallbackBreakdown = {
+    isAiGenerated: false,
+    source: "rule-based-processing",
+    breakdown: {
+      coreIdea: `The central mechanism of ${title || "this concept"} is establishing an invariant relationship between inputs, transformations, and outcomes.`,
+      everydayAnalogy: `Think of it like a commuter transit hub: efficiency depends not on packing more vehicles, but on routing flows through non-blocking pathways.`,
+      prerequisites: ["Fundamental terminology", "Basic structural relations", "Constraint evaluation"],
+      potentialMisconceptions: ["Confusing familiarity with retrieval capability", "Overlooking edge cases under heavy load"],
+      keyQuestionForSelfTest: `If the core condition is inverted, what immediate consequence occurs in the system?`,
+    },
+  };
+
   try {
-    const { rawContent, title, domain } = req.body;
     const ai = getGeminiClient();
 
     if (!ai) {
-      return res.json({
-        isAiGenerated: false,
-        source: "rule-based-processing",
-        breakdown: {
-          coreIdea: `The central mechanism of ${title || "this concept"} is establishing an invariant relationship between inputs, transformations, and outcomes.`,
-          everydayAnalogy: `Think of it like a commuter transit hub: efficiency depends not on packing more vehicles, but on routing flows through non-blocking pathways.`,
-          prerequisites: ["Fundamental terminology", "Basic structural relations", "Constraint evaluation"],
-          potentialMisconceptions: ["Confusing familiarity with retrieval capability", "Overlooking edge cases under heavy load"],
-          keyQuestionForSelfTest: `If the core condition is inverted, what immediate consequence occurs in the system?`,
-        },
-      });
+      return res.json(fallbackBreakdown);
     }
 
     const prompt = `Analyze this captured learning material to help the student build a durable mental model:
@@ -363,8 +388,8 @@ Return JSON:
       breakdown: JSON.parse(response.text || "{}"),
     });
   } catch (err: any) {
-    console.error("Concept process error:", err);
-    return res.status(500).json({ error: "Concept processing failed", details: err?.message });
+    console.warn("Concept processing unavailable (high demand / 503). Serving rule-based breakdown:", err?.message || err);
+    return res.json(fallbackBreakdown);
   }
 });
 

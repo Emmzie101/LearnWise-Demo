@@ -43,23 +43,23 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   // Derive friendly page title
   const getPageTitle = (route: string) => {
-    if (route === '/app/today') return 'Today’s Learning Queue';
-    if (route === '/app/goals') return 'My Goals & Learning Path';
-    if (route === '/app/dashboard') return 'Assimilation Dashboard';
-    if (route === '/app/diagnostic') return 'Diagnostic Assessment';
-    if (route === '/app/diagnostic/results') return 'Personal Cognitive Profile (PLS-CP)';
-    if (route.startsWith('/app/capture')) return 'Capture Material';
-    if (route.startsWith('/app/process')) return 'Process Concept Studio';
-    if (route.startsWith('/app/retrieve')) return 'Retrieval Practice';
-    if (route.startsWith('/app/apply')) return 'Application Practice';
-    if (route === '/app/reinforce') return 'Spaced Reinforcement';
-    if (route === '/app/reflect') return 'Daily Reflection';
-    if (route === '/app/ai-coach') return 'Socratic Learning Coach';
-    if (route === '/app/ai-architect') return 'AI Learning Architect';
-    if (route === '/app/ai-analyst') return 'System Learning Analyst';
-    if (route === '/app/prompt-library') return 'Prompt Library';
-    if (route === '/app/interventions') return 'Intervention Plan (Bottlenecks)';
-    if (route === '/app/profile') return 'My Profile & Context';
+    if (route === '/app/today') return "Today's Plan";
+    if (route === '/app/goals') return 'My Goals';
+    if (route === '/app/dashboard') return 'Your Progress';
+    if (route === '/app/diagnostic') return 'Learning Check';
+    if (route === '/app/diagnostic/results') return 'Your Learning Report';
+    if (route.startsWith('/app/capture')) return "Add what you're learning";
+    if (route.startsWith('/app/process')) return 'Understand it';
+    if (route.startsWith('/app/retrieve')) return 'Can you remember it?';
+    if (route.startsWith('/app/apply')) return 'Use what you learned';
+    if (route === '/app/reinforce') return 'Review schedule';
+    if (route === '/app/reflect') return 'Quick check-in';
+    if (route === '/app/ai-coach') return 'AI Coach';
+    if (route === '/app/ai-architect') return 'Plan my learning';
+    if (route === '/app/ai-analyst') return 'Learning Check Analysis';
+    if (route === '/app/prompt-library') return 'Helpful Prompts';
+    if (route === '/app/interventions') return 'Your Learning Plan';
+    if (route === '/app/profile') return 'My Profile';
     return 'LearnWise';
   };
 
@@ -152,7 +152,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="btn-primary-glow flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
           >
             <FolderPlus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Add Material</span>
+            <span className="hidden sm:inline">+ Add something</span>
           </button>
 
           {/* Interactive Walkthrough / Tour Button */}
@@ -160,10 +160,10 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               onClick={onStartWalkthrough}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#EDF5FF] hover:bg-[#176FF5] text-[#176FF5] hover:text-white border border-[#176FF5]/20 text-xs font-bold transition-all cursor-pointer"
-              title="Open the step-by-step interactive system walkthrough"
+              title="Open the quick interactive tour"
             >
               <Compass className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Guided Tour</span>
+              <span className="hidden md:inline">Quick Tour</span>
             </button>
           )}
 
@@ -171,10 +171,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => onNavigate('/')}
             className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F8FAFD] text-[#607089] hover:text-[#10233F] border border-[rgba(24,60,110,0.1)] text-xs font-semibold transition-all cursor-pointer"
-            title="Go to Landing Page"
+            title="Go to Home"
           >
             <Globe className="w-3.5 h-3.5" />
-            <span>Landing Page</span>
+            <span>Home</span>
           </button>
 
           {/* Profile Dropdown */}
@@ -220,28 +220,28 @@ export const TopBar: React.FC<TopBarProps> = ({
                     className="w-full text-left px-4 py-2 hover:bg-[#EDF5FF] text-[#10233F] flex items-center gap-2 cursor-pointer"
                   >
                     <BrainCircuit className="w-4 h-4 text-[#176FF5]" />
-                    <span>Cognitive Profile</span>
+                    <span>Learning Report</span>
                   </button>
                   <button
                     onClick={() => onNavigate('/app/interventions')}
                     className="w-full text-left px-4 py-2 hover:bg-[#EDF5FF] text-[#10233F] flex items-center gap-2 cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4 text-amber-600" />
-                    <span>Bottlenecks & Fixes</span>
+                    <span>Learning Plan</span>
                   </button>
                   <button
                     onClick={onOpenSettings}
                     className="w-full text-left px-4 py-2 hover:bg-[#EDF5FF] text-[#10233F] flex items-center gap-2 cursor-pointer"
                   >
                     <Settings className="w-4 h-4 text-[#607089]" />
-                    <span>Settings & Demo Switch</span>
+                    <span>Settings & Switch Learner</span>
                   </button>
                   <button
                     onClick={() => onNavigate('/')}
                     className="w-full text-left px-4 py-2 hover:bg-[#EDF5FF] text-[#176FF5] font-medium flex items-center gap-2 cursor-pointer"
                   >
                     <Globe className="w-4 h-4 text-[#176FF5]" />
-                    <span>View Landing Page</span>
+                    <span>Home Page</span>
                   </button>
                 </div>
 

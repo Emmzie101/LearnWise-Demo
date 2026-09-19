@@ -63,10 +63,15 @@ export const ProcessConceptView: React.FC<ProcessConceptViewProps> = ({ conceptI
 
       if (res.ok) {
         const data = await res.json();
-        if (data.plainEnglish) setOwnWords(data.plainEnglish);
-        if (data.invariantRules) setInvariants(data.invariantRules);
-        if (data.groundedAnalogy) setAnalogy(data.groundedAnalogy);
-        if (data.diagnosticQuestion) setTestQuestion(data.diagnosticQuestion);
+        const breakdown = data.breakdown || data;
+        if (breakdown.coreIdea || breakdown.plainEnglish) setOwnWords(breakdown.coreIdea || breakdown.plainEnglish);
+        if (breakdown.prerequisites && Array.isArray(breakdown.prerequisites)) {
+          setInvariants(breakdown.prerequisites.map((p: string, i: number) => `${i + 1}. ${p}`).join('\n'));
+        } else if (breakdown.invariantRules) {
+          setInvariants(breakdown.invariantRules);
+        }
+        if (breakdown.everydayAnalogy || breakdown.groundedAnalogy) setAnalogy(breakdown.everydayAnalogy || breakdown.groundedAnalogy);
+        if (breakdown.keyQuestionForSelfTest || breakdown.diagnosticQuestion) setTestQuestion(breakdown.keyQuestionForSelfTest || breakdown.diagnosticQuestion);
       }
     } catch (err) {
       console.warn('Using local conceptual breakdown scaffold:', err);

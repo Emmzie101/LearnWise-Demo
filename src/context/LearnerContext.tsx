@@ -39,6 +39,7 @@ import {
   saveLearnerProfile, 
   getCurrentDimensions, 
   upsertDimensions, 
+  getActiveAssessment,
   getOrCreateActiveAssessment, 
   getLatestCompletedReport, 
   getAssessmentResponses, 
@@ -170,7 +171,8 @@ interface LearnerContextType {
   updateConceptState: (conceptId: string, newState: ConceptState) => void;
   submitRetrievalAttempt: (attempt: Omit<RetrievalAttempt, 'id' | 'timestamp' | 'calibrationStatus'>) => void;
   submitApplicationAttempt: (attempt: any) => void;
-  submitReflection: (reflection: Omit<LearningReflection, 'id' | 'timestamp'>) => void;
+  submitReflection: (reflection: Omit<LearningReflection, 'id' | 'timestamp'>) => Promise<void> | void;
+  addReflectionLog?: (reflection: any) => Promise<void> | void;
   updateInterventionStatus: (id: string, status: 'Active' | 'Completed' | 'Dismissed') => void;
   dismissRecommendation: (id: string) => void;
   setStrategyPlan: (plan: LearningStrategyPlan) => Promise<void> | void;
@@ -234,6 +236,11 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     return '';
   });
+
+  const selectedGoalIdRef = useRef<string>(selectedGoalId);
+  useEffect(() => {
+    selectedGoalIdRef.current = selectedGoalId;
+  }, [selectedGoalId]);
 
   const [concepts, setConcepts] = useState<Concept[]>(() => {
     if (isInitialDemo) {
@@ -561,8 +568,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Hydrate authenticated user state from Supabase
   const refreshLearnerState = useCallback(async () => {
     if (!user || isDemoAccount) return;
+
+    // 1. Profile
     try {
-      // 1. Profile
       const dbProfile = await getLearnerProfile(user.id);
       if (dbProfile) {
         setProfile({
@@ -571,16 +579,25 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           name: dbProfile.name || (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'New Learner',
         });
       }
+    } catch (err) {
+      console.warn('[LearnerContext] Profile hydration notice:', err);
+    }
 
-      // 2. Dimensions
+    // 2. Dimensions
+    try {
       const dbDimensions = await getCurrentDimensions(user.id);
       if (dbDimensions.length > 0) {
         setDimensions(dbDimensions);
       } else {
         setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
       }
+    } catch (err) {
+      console.warn('[LearnerContext] Dimensions hydration notice:', err);
+      setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
+    }
 
-      // 3. Completed Diagnostic Report
+    // 3. Completed Diagnostic Report
+    try {
       const latestReport = await getLatestCompletedReport(user.id);
       if (latestReport) {
         setDiagnosticReport(latestReport);
@@ -589,106 +606,140 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setDiagnosticReport(null);
         setDiagnosticCompleted(false);
       }
+    } catch (err) {
+      console.warn('[LearnerContext] Report hydration notice:', err);
+    }
 
-      // 4. Active Assessment & Responses
-      const activeAssessment = await getOrCreateActiveAssessment(user.id);
+    // 4. Active Assessment & Responses (read only, do not insert on hydration)
+    try {
+      const activeAssessment = await getActiveAssessment(user.id);
       if (activeAssessment) {
         setActiveAssessmentId(activeAssessment.id);
         const savedResponses = await getAssessmentResponses(activeAssessment.id, user.id);
         setDiagnosticResponses(savedResponses);
         diagnosticResponsesRef.current = savedResponses;
+      } else {
+        setActiveAssessmentId(null);
+        setDiagnosticResponses([]);
+        diagnosticResponsesRef.current = [];
       }
+    } catch (err) {
+      console.warn('[LearnerContext] Active assessment hydration notice:', err);
+    }
 
-      // 5. Learning Goals
+    // 5. Learning Goals & Strategy Plan
+    try {
       const dbGoals = await getLearningGoals(user.id);
       setGoals(dbGoals);
-      const activeGoalId = selectedGoalId && dbGoals.some(g => g.id === selectedGoalId)
-        ? selectedGoalId
+      const currentSelected = selectedGoalIdRef.current;
+      const activeGoalId = currentSelected && dbGoals.some(g => g.id === currentSelected)
+        ? currentSelected
         : dbGoals.length > 0 ? dbGoals[0].id : '';
-      if (activeGoalId) {
+      if (activeGoalId && activeGoalId !== currentSelected) {
         setSelectedGoalId(activeGoalId);
-        // 6. Strategy Plan for active goal
-        const plan = await getStrategyPlanByGoalId(user.id, activeGoalId);
-        if (plan) {
-          setStrategyPlanState(plan);
+      }
+      if (activeGoalId) {
+        try {
+          const plan = await getStrategyPlanByGoalId(user.id, activeGoalId);
+          if (plan) {
+            setStrategyPlanState(plan);
+          }
+        } catch (planErr) {
+          console.warn('[LearnerContext] Strategy plan notice:', planErr);
         }
       }
+    } catch (err) {
+      console.warn('[LearnerContext] Goals hydration notice:', err);
+    }
 
-      // 7. Concepts
+    // 6. Concepts
+    try {
       const dbConcepts = await getConceptsByUserId(user.id);
       setConcepts(dbConcepts);
+    } catch (err) {
+      console.warn('[LearnerContext] Concepts hydration notice:', err);
+    }
 
-      // 8. Retrieval Attempts
+    // 7. Retrieval Attempts
+    try {
       const dbRetrievals = await getRetrievalAttempts(user.id);
       setRetrievalAttempts(dbRetrievals);
+    } catch (err) {
+      console.warn('[LearnerContext] Retrieval attempts notice:', err);
+    }
 
-      // 9. Application Attempts
+    // 8. Application Attempts
+    try {
       const dbApps = await getApplicationAttempts(user.id);
       setApplicationAttempts(dbApps);
+    } catch (err) {
+      console.warn('[LearnerContext] Application attempts notice:', err);
+    }
 
-      // 10. Interventions
+    // 9. Interventions
+    try {
       const dbInterventions = await getInterventions(user.id);
       setInterventions(dbInterventions);
+    } catch (err) {
+      console.warn('[LearnerContext] Interventions notice:', err);
+    }
 
-      // 11. Recommendations
+    // 10. Recommendations
+    try {
       const dbRecommendations = await getRecommendations(user.id);
       setRecommendations(dbRecommendations);
+    } catch (err) {
+      console.warn('[LearnerContext] Recommendations notice:', err);
+    }
 
-      // 12. Reflections
+    // 11. Reflections
+    try {
       const dbReflections = await getLearningReflections(user.id);
       setReflections(dbReflections);
     } catch (err) {
-      console.error('[LearnerContext] Error hydrating learner state:', err);
+      console.warn('[LearnerContext] Reflections notice:', err);
     }
-  }, [user, isDemoAccount, selectedGoalId]);
+  }, [user?.id, isDemoAccount]);
+
+  const lastProcessedUserIdRef = useRef<string | null>(null);
 
   // Synchronize authenticated identity from Supabase Auth
   useEffect(() => {
-    let isMounted = true;
+    const currentUserId = user?.id || null;
 
-    if (user) {
-      setIsDemoAccount(false);
-      setIsAuthenticated(true);
-      // Immediately reset to clean non-demo authenticated baseline so no demo data (Ada, etc.) leaks
-      setProfile({
-        ...DEFAULT_AUTHENTICATED_PROFILE,
-        id: user.id,
-        email: user.email || '',
-        name: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || '',
-      });
-      setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
-      setGoals([]);
-      setSelectedGoalId('');
-      setConcepts([]);
-      setRetrievalAttempts([]);
-      setApplicationAttempts([]);
-      setInterventions([]);
-      setRecommendations([]);
-      setReflections([]);
-      setRisks([]);
-      setStrategyPlanState(null);
-      setDiagnosticResponses([]);
-      diagnosticResponsesRef.current = [];
-      setDiagnosticReport(null);
-      setDiagnosticCompleted(false);
-
-      void refreshLearnerState();
-    } else if (!isDemoAccount) {
-      setIsAuthenticated(false);
-      setActiveAssessmentId(null);
-      setDiagnosticReport(null);
-      setDiagnosticCompleted(false);
-      setDiagnosticResponses([]);
-      diagnosticResponsesRef.current = [];
+    if (currentUserId) {
+      // Only execute initial reset & hydration if user identity actually changed
+      if (lastProcessedUserIdRef.current !== currentUserId) {
+        lastProcessedUserIdRef.current = currentUserId;
+        setIsDemoAccount(false);
+        setIsAuthenticated(true);
+        setProfile(prev => ({
+          ...DEFAULT_AUTHENTICATED_PROFILE,
+          id: currentUserId,
+          email: user?.email || prev.email || '',
+          name: (user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || prev.name || '',
+        }));
+        setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
+        void refreshLearnerState();
+      }
+    } else {
+      if (lastProcessedUserIdRef.current !== null) {
+        lastProcessedUserIdRef.current = null;
+        if (!isDemoAccount) {
+          setIsAuthenticated(false);
+          setActiveAssessmentId(null);
+          setDiagnosticReport(null);
+          setDiagnosticCompleted(false);
+          setDiagnosticResponses([]);
+          diagnosticResponsesRef.current = [];
+        }
+      }
     }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user, isDemoAccount, refreshLearnerState]);
+  }, [user?.id, isDemoAccount, refreshLearnerState]);
 
   // Auth & Account handlers - AuthContext is the single authoritative source of truth for auth
   const logout = () => {
+    lastProcessedUserIdRef.current = null;
     if (user) {
       void authSignOut();
     }
@@ -714,6 +765,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const loadDemoAccount = () => {
+    lastProcessedUserIdRef.current = null;
     if (user) {
       void authSignOut();
     }
@@ -878,12 +930,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const initRec: Recommendation = {
         id: `rec_diag_${Date.now()}`,
-        type: initBottleneck.recommendedIntervention.type as any,
-        title: initBottleneck.recommendedIntervention.title,
-        reason: initBottleneck.recommendedIntervention.rationale,
-        sourceSignal: `Diagnostic Assessment: Primary bottleneck detected in ${initBottleneck.primaryBottleneck.title} (${initBottleneck.primaryBottleneck.score}/100).`,
-        actionPrompt: initBottleneck.nextAction.title,
-        actionRoute: initBottleneck.nextAction.route,
+        type: initBottleneck.recommendedIntervention?.type as any || 'prerequisite',
+        title: initBottleneck.recommendedIntervention?.title || 'Diagnostic Next Action',
+        reason: initBottleneck.recommendedIntervention?.rationale || 'Address primary bottleneck.',
+        sourceSignal: initBottleneck.primaryBottleneck
+          ? `Diagnostic Assessment: Primary bottleneck detected in ${initBottleneck.primaryBottleneck.title} (${initBottleneck.primaryBottleneck.score}/100).`
+          : 'Diagnostic Assessment: Baseline profile recorded across 7 dimensions.',
+        actionPrompt: initBottleneck.nextAction?.title || 'Review Diagnostic Profile',
+        actionRoute: initBottleneck.nextAction?.route || '/app/diagnostic-results',
         priority: 'High',
         createdAt: new Date().toISOString(),
       };
@@ -988,12 +1042,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Save targeted recommendation to Supabase
       const rec: Recommendation = {
         id: `rec_goal_${Date.now()}`,
-        type: bottleneck.recommendedIntervention.type as any,
+        type: bottleneck.recommendedIntervention?.type as any || 'prerequisite',
         title: `Strategy Activated: ${createdGoal.title}`,
         reason: bottleneck.goalConnection,
-        sourceSignal: `Goal Architecture: ${bottleneck.primaryBottleneck.title} targeted.`,
-        actionPrompt: bottleneck.nextAction.title,
-        actionRoute: bottleneck.nextAction.route,
+        sourceSignal: bottleneck.primaryBottleneck
+          ? `Goal Architecture: ${bottleneck.primaryBottleneck.title} targeted.`
+          : 'Goal Architecture: Deliberate practice sequence initialized.',
+        actionPrompt: bottleneck.nextAction?.title || 'Start Learning Strategy',
+        actionRoute: bottleneck.nextAction?.route || '/app/goals',
         priority: 'High',
         createdAt: new Date().toISOString(),
       };
@@ -1251,6 +1307,18 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const submitReflection = async (reflectionData: Omit<LearningReflection, 'id' | 'timestamp'>) => {
+    // Stage 5.1: Duplicate Prevention Check
+    // If an identical reflection was submitted recently (< 10 seconds), prevent duplicate submission
+    const isRecentDuplicate = reflections.some(r =>
+      r.whatFeltEasy === reflectionData.whatFeltEasy &&
+      r.whatFeltUnclear === reflectionData.whatFeltUnclear &&
+      Math.abs(Date.now() - new Date(r.timestamp).getTime()) < 10000
+    );
+    if (isRecentDuplicate) {
+      console.warn('[LearnerContext] Duplicate reflection detected; suppressing duplicate log.');
+      return;
+    }
+
     let newReflection: LearningReflection;
     if (user && !isDemoAccount) {
       newReflection = await dbSaveLearningReflection(user.id, reflectionData);
@@ -1264,10 +1332,35 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         timestamp: new Date().toISOString(),
       };
     }
-    setReflections(prev => [newReflection, ...prev]);
+
+    setReflections(prev => {
+      // Secondary in-state deduplication safeguard
+      const exists = prev.some(r => 
+        r.id === newReflection.id || (
+          r.whatFeltEasy === newReflection.whatFeltEasy &&
+          r.whatFeltUnclear === newReflection.whatFeltUnclear &&
+          Math.abs(Date.now() - new Date(r.timestamp).getTime()) < 10000
+        )
+      );
+      if (exists) return prev;
+      return [newReflection, ...prev];
+    });
 
     // Reflection is recorded as a qualitative metacognitive event.
     // In accordance with Stage 5.1 Evidence Integrity, reflections do NOT arbitrarily inflate PLSFR scores or evidence counts.
+  };
+
+  const addReflectionLog = async (data: any) => {
+    const formatted: Omit<LearningReflection, 'id' | 'timestamp'> = {
+      sessionType: data.sessionType || 'daily_synthesis',
+      whatFeltEasy: data.whatFeltEasy || data.easyConcept || '',
+      whatFeltUnclear: data.whatFeltUnclear || data.unclearConcept || '',
+      mistakeIdentified: data.mistakeIdentified || data.mistakeLearned || '',
+      strategyThatHelped: data.strategyThatHelped || data.strategyUsed || '',
+      adjustmentForNextTime: data.adjustmentForNextTime || data.nextSessionChange || '',
+      cognitiveEnergy: data.cognitiveEnergy || data.energyRating || 4,
+    };
+    await submitReflection(formatted);
   };
 
   const updateInterventionStatus = (id: string, status: 'Active' | 'Completed' | 'Dismissed') => {
@@ -1344,6 +1437,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         submitRetrievalAttempt,
         submitApplicationAttempt,
         submitReflection,
+        addReflectionLog,
         updateInterventionStatus,
         dismissRecommendation,
         setStrategyPlan,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { PlsfrDimension } from '../types';
+import { getFriendlyDimension } from '../utils/learnerFriendly';
 
 interface DimensionScoreBarProps {
   dimension: PlsfrDimension;
@@ -7,6 +8,8 @@ interface DimensionScoreBarProps {
 }
 
 export const DimensionScoreBar: React.FC<DimensionScoreBarProps> = ({ dimension, compact = false }) => {
+  const friendly = getFriendlyDimension(dimension.key);
+
   // Qualitative strength color and border
   const getBadgeStyle = (level: PlsfrDimension['strengthLevel']) => {
     switch (level) {
@@ -35,12 +38,12 @@ export const DimensionScoreBar: React.FC<DimensionScoreBarProps> = ({ dimension,
   const getConfidenceBadge = (band?: 'Low' | 'Moderate' | 'High') => {
     switch (band) {
       case 'High':
-        return { text: 'High Evidence', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+        return { text: 'Well tested', style: 'bg-blue-50 text-blue-700 border-blue-200' };
       case 'Moderate':
-        return { text: 'Mod Evidence', style: 'bg-slate-100 text-slate-700 border-slate-200' };
+        return { text: 'Some practice', style: 'bg-slate-100 text-slate-700 border-slate-200' };
       case 'Low':
       default:
-        return { text: 'Initial Signal', style: 'bg-amber-50 text-amber-700 border-amber-200' };
+        return { text: 'Getting started', style: 'bg-amber-50 text-amber-700 border-amber-200' };
     }
   };
 
@@ -50,7 +53,7 @@ export const DimensionScoreBar: React.FC<DimensionScoreBarProps> = ({ dimension,
     return (
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs">
-          <span className="font-medium text-[#10233F] truncate max-w-[170px]">{dimension.name}</span>
+          <span className="font-medium text-[#10233F] truncate max-w-[170px]">{friendly.name}</span>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] px-1.5 py-0.2 rounded font-medium border bg-slate-50 text-slate-600 border-slate-200">
               {confInfo.text}
@@ -72,8 +75,8 @@ export const DimensionScoreBar: React.FC<DimensionScoreBarProps> = ({ dimension,
     <div className="p-4.5 rounded-2xl bg-white border border-[rgba(24,60,110,0.07)] shadow-xs space-y-3 hover:border-[#176FF5]/30 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="font-semibold text-[#10233F] text-sm md:text-base">{dimension.name}</h4>
-          <p className="text-xs text-[#607089] line-clamp-2 mt-0.5">{dimension.description}</p>
+          <h4 className="font-semibold text-[#10233F] text-sm md:text-base">{friendly.name}</h4>
+          <p className="text-xs text-[#607089] line-clamp-2 mt-0.5">{friendly.simpleDescription}</p>
         </div>
         <div className="text-right shrink-0">
           <div className="flex items-baseline justify-end gap-1.5">
@@ -98,10 +101,11 @@ export const DimensionScoreBar: React.FC<DimensionScoreBarProps> = ({ dimension,
           />
         </div>
         <div className="flex items-center justify-between text-[11px] text-[#8A96A8] pt-0.5">
-          <span>Triangulated evidence: <strong>{dimension.evidenceCount} indicators</strong></span>
-          <span>Risk signal: <strong className={dimension.riskLevel === 'Elevated' ? 'text-rose-600' : 'text-[#607089]'}>{dimension.riskLevel}</strong></span>
+          <span>Practice evidence: <strong>{dimension.evidenceCount} activities</strong></span>
+          <span>Status: <strong className={dimension.riskLevel === 'Elevated' ? 'text-amber-600' : 'text-[#607089]'}>{dimension.riskLevel === 'Elevated' ? 'Needs focus' : 'On track'}</strong></span>
         </div>
       </div>
     </div>
   );
 };
+

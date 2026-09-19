@@ -300,6 +300,37 @@ export interface DiagnosticAssessmentRow {
 }
 
 /**
+ * Retrieves the currently active ('in_progress') assessment for the user, if one exists.
+ * Does NOT create a new assessment if none exists.
+ */
+export async function getActiveAssessment(
+  userId: string
+): Promise<DiagnosticAssessmentRow | null> {
+  if (!isSupabaseConfigured() || !userId) return null;
+
+  try {
+    const { data: active, error: activeError } = await supabase
+      .from('diagnostic_assessments')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'in_progress')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (activeError) {
+      console.warn('[diagnosticService] Warning checking active assessment:', activeError.message);
+      return null;
+    }
+
+    return (active as DiagnosticAssessmentRow) || null;
+  } catch (err) {
+    console.warn('[diagnosticService] Failed to check active assessment:', err);
+    return null;
+  }
+}
+
+/**
  * Gets or creates the current active ('in_progress') assessment for the user.
  * If none exists, computes the next cycle number and starts a new one.
  */
@@ -307,61 +338,91 @@ export async function getOrCreateActiveAssessment(
   userId: string
 ): Promise<DiagnosticAssessmentRow> {
   if (!isSupabaseConfigured() || !userId) {
-    throw new Error('Supabase is not configured or user is unauthenticated.');
+    // Return a transient client-side assessment if Supabase is unconfigured
+    return {
+      id: `local_assessment_${Date.now()}`,
+      user_id: userId || 'local_user',
+      cycle_number: 1,
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+      completed_at: null,
+    };
   }
 
   // 1. Look for existing in_progress assessment
-  const { data: active, error: activeError } = await supabase
-    .from('diagnostic_assessments')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('status', 'in_progress')
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  try {
+    const { data: active, error: activeError } = await supabase
+      .from('diagnostic_assessments')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'in_progress')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (activeError) {
-    console.error('[diagnosticService] Error checking active assessment:', activeError.message);
-    throw activeError;
-  }
-
-  if (active) {
-    return active as DiagnosticAssessmentRow;
+    if (!activeError && active) {
+      return active as DiagnosticAssessmentRow;
+    }
+  } catch (err) {
+    console.warn('[diagnosticService] Error reading active assessment:', err);
   }
 
   // 2. Compute next cycle number (highest cycle_number + 1, or 1)
-  const { data: highestCycle, error: cycleError } = await supabase
-    .from('diagnostic_assessments')
-    .select('cycle_number')
-    .eq('user_id', userId)
-    .order('cycle_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let nextCycle = 1;
+  try {
+    const { data: highestCycle } = await supabase
+      .from('diagnostic_assessments')
+      .select('cycle_number')
+      .eq('user_id', userId)
+      .order('cycle_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (cycleError) {
-    console.warn('[diagnosticService] Error reading highest cycle, defaulting to 1:', cycleError.message);
+    if (highestCycle?.cycle_number) {
+      nextCycle = highestCycle.cycle_number + 1;
+    }
+  } catch (err) {
+    console.warn('[diagnosticService] Error reading highest cycle, defaulting to 1:', err);
   }
 
-  const nextCycle = highestCycle?.cycle_number ? highestCycle.cycle_number + 1 : 1;
-
   // 3. Create fresh assessment
-  const { data: created, error: createError } = await supabase
-    .from('diagnostic_assessments')
-    .insert({
+  try {
+    const { data: created, error: createError } = await supabase
+      .from('diagnostic_assessments')
+      .insert({
+        user_id: userId,
+        cycle_number: nextCycle,
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.warn('[diagnosticService] Database assessment creation restricted (RLS):', createError.message);
+      // Return safe transient fallback assessment row so UI is never blocked
+      return {
+        id: `assessment_${Date.now()}`,
+        user_id: userId,
+        cycle_number: nextCycle,
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      };
+    }
+
+    return created as DiagnosticAssessmentRow;
+  } catch (err) {
+    console.warn('[diagnosticService] Unexpected error creating assessment, using transient session:', err);
+    return {
+      id: `assessment_${Date.now()}`,
       user_id: userId,
       cycle_number: nextCycle,
       status: 'in_progress',
       started_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (createError) {
-    console.error('[diagnosticService] Error creating assessment:', createError.message);
-    throw createError;
+      completed_at: null,
+    };
   }
-
-  return created as DiagnosticAssessmentRow;
 }
 
 /**

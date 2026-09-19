@@ -124,7 +124,31 @@ export const AISuiteView: React.FC<AISuiteViewProps> = ({ initialTab = 'coach', 
       let replyText = '';
       if (res.ok) {
         const data = await res.json();
-        replyText = data.reply || data.analysis || data.summary || (data.phases ? `I have architected a ${data.phases.length}-phase learning path for you! Check your Goals & Paths view.` : 'Processed.');
+        if (data.response) {
+          replyText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
+        } else if (data.reply) {
+          replyText = data.reply;
+        } else if (data.analysis) {
+          if (typeof data.analysis === 'string') {
+            replyText = data.analysis;
+          } else if (typeof data.analysis === 'object') {
+            const headline = data.analysis.headline || 'Cognitive Telemetry Analysis';
+            const findings = Array.isArray(data.analysis.findings) ? data.analysis.findings.map((f: string) => `• ${f}`).join('\n') : '';
+            const rec = data.analysis.nextActionRecommendation ? `\n\nRecommended Focus:\n${data.analysis.nextActionRecommendation}` : '';
+            replyText = `${headline}\n\n${findings}${rec}`;
+          }
+        } else if (data.strategy) {
+          const title = data.strategy.title || 'Learning Strategy';
+          const rationale = data.strategy.rationale || '';
+          const phaseCount = data.strategy.phases?.length || 0;
+          replyText = `**${title}**\n\n${rationale}\n\nArchitected ${phaseCount} learning phases. You can inspect the complete phase breakdown in your Goals & Paths view.`;
+        } else if (data.summary) {
+          replyText = data.summary;
+        } else if (data.phases) {
+          replyText = `I have architected a ${data.phases.length}-phase learning path for you! Check your Goals & Paths view.`;
+        } else {
+          replyText = 'Response processed successfully.';
+        }
       } else {
         throw new Error('Server returned error status');
       }

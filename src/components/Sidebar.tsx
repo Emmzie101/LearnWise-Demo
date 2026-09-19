@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => handleLinkClick('/')}
             className="flex items-center gap-2.5 text-left group cursor-pointer"
-            title="Go to Landing Page"
+            title="Go to Home"
           >
             <div className="w-8 h-8 rounded-xl bg-[#10233F] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
               <BrainCircuit className="w-4 h-4 text-[#176FF5]" />
@@ -101,10 +101,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="font-extrabold text-sm font-heading text-[#10233F] tracking-tight flex items-center gap-1.5">
                 LearnWise
                 <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#EDF5FF] text-[#176FF5]">
-                  PLSFR+
+                  Student
                 </span>
               </div>
-              <p className="text-[10px] text-[#8A96A8] font-medium">Cognitive Learning System</p>
+              <p className="text-[10px] text-[#8A96A8] font-medium">Smarter Learning Guide</p>
             </div>
           </button>
 
@@ -118,19 +118,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Scrollable Navigation Body */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-5 text-xs select-none">
+        <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-4 text-xs select-none">
+          {/* Quick Primary Action: Add what you're learning */}
+          <button
+            onClick={() => handleLinkClick('/app/capture/new')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold bg-[#176FF5] text-white shadow-[0_4px_16px_rgba(23,111,245,0.25)] hover:bg-[#1258CC] active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>+ Add what you're learning</span>
+          </button>
+
           {/* Main Top Navigation Items */}
           <div className="space-y-1">
             <button
               onClick={() => handleLinkClick('/app/today')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold transition-all cursor-pointer ${
                 currentRoute === '/app/today'
-                  ? 'bg-[#176FF5] text-white shadow-[0_4px_16px_rgba(23,111,245,0.25)]'
+                  ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
                   : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
               }`}
             >
               <Home className="w-4 h-4 shrink-0" />
-              <span>Home & Today</span>
+              <span>Today's Plan</span>
             </button>
 
             {onStartWalkthrough && (
@@ -139,41 +148,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onCloseMobile();
                   onStartWalkthrough();
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl font-semibold text-[#176FF5] bg-[#EDF5FF] hover:bg-[#176FF5] hover:text-white transition-all cursor-pointer group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl font-semibold text-[#176FF5] hover:bg-[#EDF5FF] transition-all cursor-pointer group"
               >
-                <Compass className="w-4 h-4 shrink-0 text-[#176FF5] group-hover:text-white" />
+                <Compass className="w-4 h-4 shrink-0 text-[#176FF5]" />
                 <div className="flex-1 flex items-center justify-between">
-                  <span>Guided Tour</span>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white text-[#176FF5] group-hover:bg-white/20 group-hover:text-white">
-                    5 Steps
+                  <span>How it works</span>
+                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-[#EDF5FF] text-[#176FF5]">
+                    Quick Tour
                   </span>
                 </div>
               </button>
             )}
-
-            <button
-              onClick={() => handleLinkClick('/app/goals')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold transition-all cursor-pointer ${
-                currentRoute === '/app/goals'
-                  ? 'bg-[#176FF5] text-white shadow-[0_4px_16px_rgba(23,111,245,0.25)]'
-                  : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
-              }`}
-            >
-              <Target className="w-4 h-4 shrink-0" />
-              <div className="flex-1 flex items-center justify-between">
-                <span>My Goals & Path</span>
-                {selectedGoal && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium truncate max-w-[80px] ${
-                    currentRoute === '/app/goals' ? 'bg-white/20 text-white' : 'bg-gray-100 text-[#607089]'
-                  }`}>
-                    {selectedGoal.domain}
-                  </span>
-                )}
-              </div>
-            </button>
           </div>
 
-          {/* SECTION 1: LEARN (The Closed-Loop Steps) */}
+          {/* SECTION 1: LEARN */}
           <div className="space-y-1">
             <button
               onClick={() => toggleSection('learn')}
@@ -186,6 +174,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {openSections.learn && (
               <div className="space-y-0.5 pl-2 border-l border-gray-100 ml-3">
                 <button
+                  onClick={() => handleLinkClick('/app/goals')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
+                    currentRoute === '/app/goals'
+                      ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
+                      : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
+                  }`}
+                >
+                  <Target className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
+                  <div className="text-left flex-1 flex items-center justify-between">
+                    <div>
+                      <span className="block text-xs leading-none font-semibold">My Goals</span>
+                      <span className="text-[10px] text-[#8A96A8] font-normal">What you want to master</span>
+                    </div>
+                    {selectedGoal && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-[#607089] truncate max-w-[65px]">
+                        {selectedGoal.domain}
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                <button
                   onClick={() => handleLinkClick('/app/capture/new')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
                     currentRoute.startsWith('/app/capture')
@@ -193,10 +203,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
                   }`}
                 >
-                  <FolderPlus className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
+                  <FolderPlus className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Capture</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Add notes or syllabus</span>
+                    <span className="block text-xs leading-none font-semibold">Add something</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Save notes or ideas</span>
                   </div>
                 </button>
 
@@ -210,8 +220,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <BrainCircuit className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Process</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Understand ideas in depth</span>
+                    <span className="block text-xs leading-none font-semibold">Understand it</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Explain in your own words</span>
                   </div>
                 </button>
 
@@ -223,10 +233,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
                   }`}
                 >
-                  <Repeat className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
+                  <Repeat className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Retrieve</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Remember without notes</span>
+                    <span className="block text-xs leading-none font-semibold">Remember</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Practise recall without notes</span>
                   </div>
                 </button>
 
@@ -240,8 +250,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Compass className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Apply</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Solve real problems</span>
+                    <span className="block text-xs leading-none font-semibold">Use what you learned</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Try realistic scenarios</span>
                   </div>
                 </button>
 
@@ -255,8 +265,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Layers className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Reinforce</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Review before you forget</span>
+                    <span className="block text-xs leading-none font-semibold">Review schedule</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Spaced reviews</span>
                   </div>
                 </button>
 
@@ -270,66 +280,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <BookOpen className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Reflect</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Quick study check-in</span>
+                    <span className="block text-xs leading-none font-semibold">Quick check-in</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">How did studying go?</span>
                   </div>
                 </button>
               </div>
             )}
           </div>
 
-          {/* SECTION 2: PRACTICE */}
-          <div className="space-y-1">
-            <button
-              onClick={() => toggleSection('practice')}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8A96A8] hover:text-[#10233F] cursor-pointer"
-            >
-              <span>Practice</span>
-              {openSections.practice ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            </button>
-
-            {openSections.practice && (
-              <div className="space-y-0.5 pl-2 border-l border-gray-100 ml-3">
-                <button
-                  onClick={() => handleLinkClick('/app/retrieve')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                    currentRoute === '/app/retrieve'
-                      ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
-                      : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
-                  }`}
-                >
-                  <Repeat className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
-                  <span>Retrieval Practice</span>
-                </button>
-
-                <button
-                  onClick={() => handleLinkClick('/app/apply')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                    currentRoute.startsWith('/app/apply')
-                      ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
-                      : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
-                  }`}
-                >
-                  <Compass className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>Application Practice</span>
-                </button>
-
-                <button
-                  onClick={() => handleLinkClick('/app/reinforce')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                    currentRoute === '/app/reinforce'
-                      ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
-                      : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                  <span>Spaced Review</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* SECTION 3: PROGRESS */}
+          {/* SECTION 2: PROGRESS */}
           <div className="space-y-1">
             <button
               onClick={() => toggleSection('progress')}
@@ -351,8 +310,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Assimilation</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">How well you retain</span>
+                    <span className="block text-xs leading-none font-semibold">Your Progress</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">How much you remember</span>
                   </div>
                 </button>
 
@@ -366,8 +325,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Bottlenecks & Fixes</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">What's slowing you down</span>
+                    <span className="block text-xs leading-none font-semibold">Your Learning Plan</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">What to improve</span>
                   </div>
                 </button>
 
@@ -381,8 +340,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <BrainCircuit className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">PLSFR+ Profile</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Your 7 learning dimensions</span>
+                    <span className="block text-xs leading-none font-semibold">Your Learning Report</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">How you learn best</span>
                   </div>
                 </button>
 
@@ -395,19 +354,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <HelpCircle className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
-                  <span>Retake Diagnostic</span>
+                  <div className="text-left">
+                    <span className="block text-xs leading-none font-semibold">Learning Check</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Diagnostic assessment</span>
+                  </div>
                 </button>
               </div>
             )}
           </div>
 
-          {/* SECTION 4: AI HELP */}
+          {/* SECTION 3: AI COACH */}
           <div className="space-y-1">
             <button
               onClick={() => toggleSection('ai')}
               className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8A96A8] hover:text-[#10233F] cursor-pointer"
             >
-              <span>AI Guidance</span>
+              <span>AI Coach</span>
               {openSections.ai ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
 
@@ -416,45 +378,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={() => handleLinkClick('/app/ai-coach')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                    currentRoute === '/app/ai-coach'
+                    currentRoute === '/app/ai-coach' || currentRoute === '/app/ai-architect' || currentRoute === '/app/ai-analyst'
                       ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
                       : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
                   }`}
                 >
                   <Bot className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Learning Coach</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Guides without giving answers</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => handleLinkClick('/app/ai-architect')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                    currentRoute === '/app/ai-architect'
-                      ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
-                      : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <div className="text-left">
-                    <span className="block text-xs leading-none">Learning Architect</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Builds study plan</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => handleLinkClick('/app/ai-analyst')}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                    currentRoute === '/app/ai-analyst'
-                      ? 'bg-[#EDF5FF] text-[#176FF5] font-bold'
-                      : 'text-[#607089] hover:bg-[#F8FAFD] hover:text-[#10233F]'
-                  }`}
-                >
-                  <BarChart3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                  <div className="text-left">
-                    <span className="block text-xs leading-none">Learning Analyst</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">Diagnoses bottlenecks</span>
+                    <span className="block text-xs leading-none font-semibold">AI Coach</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Guides your thinking</span>
                   </div>
                 </button>
 
@@ -468,8 +400,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#176FF5] shrink-0" />
                   <div className="text-left">
-                    <span className="block text-xs leading-none">Prompt Library</span>
-                    <span className="text-[10px] text-[#8A96A8] font-normal">High-yield AI prompts</span>
+                    <span className="block text-xs leading-none font-semibold">Helpful Prompts</span>
+                    <span className="text-[10px] text-[#8A96A8] font-normal">Ready-to-use study prompts</span>
                   </div>
                 </button>
               </div>

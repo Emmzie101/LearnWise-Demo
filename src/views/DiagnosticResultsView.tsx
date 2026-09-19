@@ -3,6 +3,7 @@ import { useLearner } from '../context/LearnerContext';
 import { DimensionScoreBar } from '../components/DimensionScoreBar';
 import { VisualCueTooltip } from '../components/VisualCueTooltip';
 import { DEFAULT_DEMO_REPORT } from '../utils/diagnosticEngine';
+import { getFriendlyDimension } from '../utils/learnerFriendly';
 import { 
   BrainCircuit, 
   ShieldAlert, 
@@ -99,27 +100,27 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF2FF] text-[#124BCE] text-xs font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EDF5FF] text-[#176FF5] text-xs font-bold uppercase tracking-wider">
               <BrainCircuit className="w-3.5 h-3.5" />
-              <span>Step 1: Cognitive Diagnostic Report</span>
+              <span>Step 1: Your Learning Report</span>
             </div>
             <VisualCueTooltip
-              badgeText="Step 1: Scientific Diagnosis"
-              title="Grounded in Cognitive Science"
-              description="This assessment evaluates your study mechanics against proven learning science (Dunlosky, Sweller, Roediger, Bjork). It identifies why you leak marks despite studying hard."
-              ruleOfThumb="Fixing your single lowest cognitive bottleneck produces 3x more retention than 20 extra hours of passive re-reading."
+              badgeText="Step 1: Learning Report"
+              title="How You Learn Best"
+              description="This assessment checks your study habits and problem-solving patterns. It shows where you're already doing great and where a small shift will save you hours of wasted effort."
+              ruleOfThumb="Fixing your biggest bottleneck produces 3x more retention than 20 extra hours of re-reading."
               onExploreWalkthrough={onStartWalkthrough}
             />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#071A3A]">
-            {profile.name}'s PLSFR+ Diagnostic Profile
+          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-[#10233F]">
+            {profile.name}'s Learning Report
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
-            <span>Overall Confidence: <strong className="text-[#124BCE]">{report.overallConfidence} Evidence</strong></span>
+            <span>Overall Confidence: <strong className="text-[#176FF5]">{report.overallConfidence} Evidence</strong></span>
             <span>•</span>
             <span className="flex items-center gap-1 text-slate-600">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              Next calibration: <strong>{report.reassessmentDate}</strong> (18-day cycle)
+              Next check: <strong>{report.reassessmentDate}</strong> (18-day cycle)
             </span>
           </p>
         </div>
@@ -127,9 +128,9 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => onNavigate('/app/interventions')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            className="btn-primary-glow flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
           >
-            <span>Activate Priority Protocols</span>
+            <span>Start Your Learning Plan</span>
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
@@ -144,17 +145,17 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
       </div>
 
       {/* 1. Executive Summary Synthesis */}
-      <div className="p-6 rounded-3xl bg-linear-to-br from-[#F7FAFF] to-[#EDF5FF] border border-[#1769FF]/20 shadow-xs space-y-3">
-        <div className="flex items-center gap-2 text-[#124BCE]">
-          <Sparkles className="w-5 h-5 text-[#124BCE]" />
-          <h3 className="font-bold text-sm uppercase tracking-wider font-heading">Diagnostic Synthesis & Scientific Takeaway</h3>
+      <div className="p-6 rounded-3xl bg-linear-to-br from-[#F8FAFD] to-[#EDF5FF] border border-[#176FF5]/15 shadow-xs space-y-3">
+        <div className="flex items-center gap-2 text-[#176FF5]">
+          <Sparkles className="w-5 h-5 text-[#176FF5]" />
+          <h3 className="font-bold text-sm uppercase tracking-wider font-heading">Summary & Key Takeaway</h3>
         </div>
         <p className="text-sm text-[#10233F] leading-relaxed">
           {report.executiveSummary}
         </p>
         <div className="flex items-center gap-2 pt-2 text-[11px] text-gray-500">
-          <Clock className="w-3.5 h-3.5 text-[#124BCE]" />
-          <span>Diagnostic rule-check passed • All scores calibrated against self-report and scenario choices.</span>
+          <Clock className="w-3.5 h-3.5 text-[#176FF5]" />
+          <span>Report verified • Calibrated based on your answers and practice habits.</span>
         </div>
       </div>
 
@@ -168,7 +169,7 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
                 <AlertTriangle className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 block">Primary System Bottleneck</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 block">Area Needing Attention</span>
                 <h3 className="font-bold text-base font-heading text-rose-950">{report.primaryBottleneck.name}</h3>
               </div>
             </div>
@@ -187,10 +188,10 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
 
           <div className="p-3 rounded-2xl bg-white/80 border border-rose-200/60 text-xs text-rose-950 space-y-1">
             <span className="font-semibold text-rose-800 flex items-center gap-1">
-              <Zap className="w-3.5 h-3.5 text-rose-600" /> High-Leverage Fix:
+              <Zap className="w-3.5 h-3.5 text-rose-600" /> What to do next:
             </span>
             <p className="text-[11px] text-rose-900 leading-snug">
-              Do not spend more hours re-reading. Shift 100% of review time to closed-book recall and test-taking practice.
+              Spend less time re-reading notes. Switch to testing yourself and solving questions with books closed.
             </p>
           </div>
         </div>
@@ -203,7 +204,7 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
                 <CheckCircle2 className="w-4 h-4" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">Leverageable Foundation</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">Your Greatest Strength</span>
                 <h3 className="font-bold text-base font-heading text-emerald-950">{report.leverageableStrength.name}</h3>
               </div>
             </div>
@@ -222,10 +223,10 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
 
           <div className="p-3 rounded-2xl bg-white/80 border border-emerald-200/60 text-xs text-emerald-950 space-y-1">
             <span className="font-semibold text-emerald-800 flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5 text-emerald-600" /> How to Weaponize This:
+              <Flame className="w-3.5 h-3.5 text-emerald-600" /> How to use this strength:
             </span>
             <p className="text-[11px] text-emerald-900 leading-snug">
-              Use your high resilience and cognitive stamina to power through the discomfort of getting quiz questions wrong during initial retrieval drills.
+              Use your high resilience and focus to push through the temporary discomfort of getting practice questions wrong before you master them.
             </p>
           </div>
         </div>
@@ -233,12 +234,12 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
 
       {/* 3. Cross-Pillar Traps & Detected Contradictions */}
       {report.contradictionsDetected && report.contradictionsDetected.length > 0 && (
-        <div className="p-6 rounded-3xl bg-white border border-[#1769FF]/15 shadow-2xs space-y-4">
-          <div className="flex items-center gap-2 text-[#071A3A]">
-            <TrendingUp className="w-5 h-5 text-[#124BCE]" />
+        <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-2xs space-y-4">
+          <div className="flex items-center gap-2 text-[#10233F]">
+            <TrendingUp className="w-5 h-5 text-[#176FF5]" />
             <div>
-              <h3 className="font-bold text-base font-heading text-[#071A3A]">Cross-Pillar Interaction Traps Detected</h3>
-              <p className="text-xs text-gray-500">How different study behaviors clash and cause hidden exam failures.</p>
+              <h3 className="font-bold text-base font-heading text-[#10233F]">Habits to Watch Out For</h3>
+              <p className="text-xs text-gray-500">Patterns where common study habits can secretly hold you back.</p>
             </div>
           </div>
 
@@ -313,21 +314,21 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-[#124BCE]" />
+            <Target className="w-5 h-5 text-[#176FF5]" />
             <div>
-              <h3 className="font-bold text-lg font-heading text-[#071A3A]">
-                Prescribed Interventions ({report.priorityInterventions.length} Priority Protocols)
+              <h3 className="font-bold text-lg font-heading text-[#10233F]">
+                Your Personalized Learning Plan ({report.priorityInterventions.length} Key Steps)
               </h3>
               <p className="text-xs text-gray-500">
-                A hard cap of high-leverage protocols to prevent cognitive overwhelm. Execute these first.
+                A focused list of the highest-impact habits to practice first.
               </p>
             </div>
           </div>
           <button
             onClick={() => onNavigate('/app/interventions')}
-            className="text-xs font-bold text-[#124BCE] hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-[#176FF5] hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>Manage in Dashboard</span>
+            <span>View Full Plan</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -350,35 +351,35 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
                     #{item.rank}
                   </span>
                   <div>
-                    <h4 className="font-bold text-sm text-[#071A3A] font-heading">{item.interventionName}</h4>
-                    <span className="text-[11px] text-gray-500 font-medium">Addresses: {item.pattern}</span>
+                    <h4 className="font-bold text-sm text-[#10233F] font-heading">{item.interventionName}</h4>
+                    <span className="text-[11px] text-gray-500 font-medium">Focus: {item.pattern}</span>
                   </div>
                 </div>
 
-                <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#124BCE] border border-blue-200">
-                  Target Pillar: {item.targetPillar.replace('_', ' ')}
+                <span className="self-start sm:self-auto px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#176FF5] border border-blue-200">
+                  Area: {getFriendlyDimension(item.targetPillar as any).name}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 <div className="space-y-2">
                   <div>
-                    <span className="font-semibold text-gray-400 uppercase text-[10px] block">Scientific Mechanism (Why)</span>
+                    <span className="font-semibold text-gray-400 uppercase text-[10px] block">Why this works</span>
                     <p className="text-gray-700 leading-relaxed">{item.why}</p>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-400 uppercase text-[10px] block">When to Execute</span>
+                    <span className="font-semibold text-gray-400 uppercase text-[10px] block">When to do it</span>
                     <p className="text-gray-800 font-medium">{item.when}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="p-3 rounded-2xl bg-[#F7FAFF] border border-[#1769FF]/15">
-                    <span className="font-bold text-[#124BCE] uppercase text-[10px] block">How to Execute (Step-by-Step)</span>
+                  <div className="p-3 rounded-2xl bg-[#F8FAFD] border border-[#176FF5]/15">
+                    <span className="font-bold text-[#176FF5] uppercase text-[10px] block">How to do it (Step by Step)</span>
                     <p className="text-gray-800 leading-relaxed font-medium">{item.how}</p>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-400 uppercase text-[10px] block">Verification Metric (Measure)</span>
+                    <span className="font-semibold text-gray-400 uppercase text-[10px] block">How you'll know it worked</span>
                     <p className="text-gray-700 font-medium">{item.measure}</p>
                   </div>
                 </div>
@@ -390,24 +391,24 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
 
       {/* 6. Recommended AI Roles */}
       {report.recommendedAIRoles && report.recommendedAIRoles.length > 0 && (
-        <div className="p-6 rounded-3xl bg-white border border-[#1769FF]/15 shadow-2xs space-y-4">
+        <div className="p-6 rounded-3xl bg-white border border-[rgba(24,60,110,0.08)] shadow-2xs space-y-4">
           <div className="flex items-center gap-2">
-            <Bot className="w-5 h-5 text-[#124BCE]" />
+            <Bot className="w-5 h-5 text-[#176FF5]" />
             <div>
-              <h3 className="font-bold text-base font-heading text-[#071A3A]">Your Recommended AI Coach Roles</h3>
-              <p className="text-xs text-gray-500">Based on your diagnostic profile, LearnWise configures these exact AI personas for you.</p>
+              <h3 className="font-bold text-base font-heading text-[#10233F]">Your Recommended AI Study Coaches</h3>
+              <p className="text-xs text-gray-500">LearnWise tunes these AI study partners to support how you learn best.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {report.recommendedAIRoles.map((role, idx) => (
-              <div key={idx} className="p-4 rounded-2xl bg-[#F7FAFF] border border-[#1769FF]/15 space-y-2">
+              <div key={idx} className="p-4 rounded-2xl bg-[#F8FAFD] border border-[#176FF5]/15 space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#EAF2FF] text-[#124BCE] flex items-center justify-center font-bold text-xs">
+                  <div className="w-7 h-7 rounded-lg bg-[#EDF5FF] text-[#176FF5] flex items-center justify-center font-bold text-xs">
                     {idx + 1}
                   </div>
                   <div>
-                    <h4 className="font-bold text-xs text-[#071A3A]">{role.roleName}</h4>
+                    <h4 className="font-bold text-xs text-[#10233F]">{role.roleName}</h4>
                     <span className="text-[10px] text-gray-500 block">{role.tagline}</span>
                   </div>
                 </div>
@@ -420,16 +421,16 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
         </div>
       )}
 
-      {/* 7. Seven-Pillar Diagnostic Breakdown (Visual + Confidence Bands) */}
+      {/* 7. Seven Learning Areas Breakdown */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-bold text-lg font-heading text-[#071A3A]">Complete Seven-Pillar Architecture</h3>
+            <h3 className="font-bold text-lg font-heading text-[#10233F]">All 7 Learning Areas</h3>
             <p className="text-xs text-gray-500">
-              Visual scores paired with confidence bands based on triangulated behavioral evidence.
+              Clear breakdown of your strengths and growth areas based on your responses.
             </p>
           </div>
-          <span className="text-[11px] text-gray-400">Section H & I Compliant</span>
+          <span className="text-[11px] text-[#8A96A8]">Calibrated Profile</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

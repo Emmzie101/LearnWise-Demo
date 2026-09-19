@@ -70,8 +70,9 @@ export const ApplicationPracticeView: React.FC<ApplicationPracticeViewProps> = (
 
       if (res.ok) {
         const data = await res.json();
-        if (data.scenario) {
-          setScenarioPrompt(`${data.scenario}\n\nTask: ${data.challengeTask || ''}`);
+        const challenge = data.challenge || data;
+        if (challenge.scenario) {
+          setScenarioPrompt(`${challenge.scenario}\n\nTask: ${challenge.taskPrompt || challenge.challengeTask || ''}`);
         }
       }
     } catch (err) {

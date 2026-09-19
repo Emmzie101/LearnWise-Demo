@@ -214,7 +214,7 @@ export const AssimilationDashboardView: React.FC<AssimilationDashboardViewProps>
               <div className="p-5 rounded-3xl bg-white border border-rose-100 shadow-[0_8px_25px_rgba(220,38,38,0.03)] space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-sm text-[#10233F]">
-                    {bottleneckRecommendation.primaryBottleneck.title} ({bottleneckRecommendation.primaryBottleneck.score}/100)
+                    {bottleneckRecommendation.primaryBottleneck?.title || 'Primary Bottleneck'} ({bottleneckRecommendation.primaryBottleneck?.score ?? 0}/100)
                   </h3>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     bottleneckRecommendation.evidenceStatus === 'sufficient'
@@ -226,23 +226,23 @@ export const AssimilationDashboardView: React.FC<AssimilationDashboardViewProps>
                 </div>
 
                 <p className="text-xs text-[#607089] leading-relaxed">
-                  {bottleneckRecommendation.primaryBottleneck.rationale}
+                  {bottleneckRecommendation.primaryBottleneck?.rationale || 'Targeted cognitive bottleneck based on your practice telemetry.'}
                 </p>
 
-                {bottleneckRecommendation.primaryBottleneck.evidence.length > 0 && (
+                {(bottleneckRecommendation.primaryBottleneck?.evidence?.length ?? 0) > 0 && (
                   <div className="text-[11px] text-[#8A96A8] bg-[#F8FAFD] p-2 rounded-xl border border-[rgba(24,60,110,0.04)] space-y-1">
                     <span className="font-bold text-[#10233F] block">Observed Telemetry:</span>
-                    {bottleneckRecommendation.primaryBottleneck.evidence.slice(0, 2).map((ev, idx) => (
+                    {bottleneckRecommendation.primaryBottleneck?.evidence.slice(0, 2).map((ev, idx) => (
                       <div key={idx} className="truncate">• {ev}</div>
                     ))}
                   </div>
                 )}
 
                 <button
-                  onClick={() => onNavigate(bottleneckRecommendation.nextAction.route)}
+                  onClick={() => onNavigate(bottleneckRecommendation.nextAction?.route || '/app/diagnostic')}
                   className="text-xs font-bold text-rose-700 hover:underline flex items-center gap-1 cursor-pointer pt-1"
                 >
-                  <span>{bottleneckRecommendation.nextAction.title}</span>
+                  <span>{bottleneckRecommendation.nextAction?.title || 'View Next Action'}</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>

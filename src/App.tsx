@@ -22,7 +22,7 @@ import { AISuiteView } from './views/AISuiteView';
 import { PromptLibraryView } from './views/PromptLibraryView';
 import { InterventionsView } from './views/InterventionsView';
 import { ProfileView } from './views/ProfileView';
-import { Home, Target, Repeat, Menu, Compass, BrainCircuit } from 'lucide-react';
+import { Home, Target, Repeat, Menu, Compass, BrainCircuit, Plus, BarChart3, Bot, BookOpen } from 'lucide-react';
 
 function AppContent() {
   const { isDemoAccount, loadDemoAccount } = useLearner();
@@ -291,11 +291,11 @@ function AppContent() {
       </div>
 
       {/* Mobile Bottom Navigation for Quick Access */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 py-2 flex items-center justify-around text-[10px]">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[rgba(24,60,110,0.08)] px-2 py-1.5 flex items-center justify-around text-[10px] shadow-lg">
         <button
           onClick={() => navigate('/app/today')}
-          className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${
-            currentRoute === '/app/today' ? 'text-[#124BCE] font-bold' : 'text-gray-500'
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-xl cursor-pointer ${
+            currentRoute === '/app/today' ? 'text-[#176FF5] font-bold' : 'text-[#607089]'
           }`}
         >
           <Home className="w-5 h-5" />
@@ -303,39 +303,49 @@ function AppContent() {
         </button>
 
         <button
-          onClick={() => navigate('/app/goals')}
-          className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${
-            currentRoute === '/app/goals' ? 'text-[#124BCE] font-bold' : 'text-gray-500'
-          }`}
-        >
-          <Target className="w-5 h-5" />
-          <span>Goals</span>
-        </button>
-
-        <button
           onClick={() => navigate('/app/retrieve')}
-          className={`flex flex-col items-center gap-1 p-1 cursor-pointer ${
-            currentRoute === '/app/retrieve' ? 'text-[#124BCE] font-bold' : 'text-gray-500'
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-xl cursor-pointer ${
+            currentRoute.startsWith('/app/retrieve') || currentRoute.startsWith('/app/apply') || currentRoute.startsWith('/app/process')
+              ? 'text-[#176FF5] font-bold'
+              : 'text-[#607089]'
           }`}
         >
-          <Repeat className="w-5 h-5" />
-          <span>Practice</span>
+          <BookOpen className="w-5 h-5" />
+          <span>Learn</span>
+        </button>
+
+        {/* Prominent + Add Action */}
+        <button
+          onClick={() => navigate('/app/capture/new')}
+          className="flex flex-col items-center -mt-5 cursor-pointer group"
+          title="Add what you're learning"
+        >
+          <div className="w-12 h-12 rounded-full bg-[#176FF5] text-white flex items-center justify-center shadow-[0_4px_16px_rgba(23,111,245,0.4)] group-active:scale-95 transition-transform">
+            <Plus className="w-6 h-6 stroke-[2.5]" />
+          </div>
+          <span className="text-[10px] font-bold text-[#176FF5] mt-1">Add</span>
         </button>
 
         <button
-          onClick={() => openWalkthrough(0)}
-          className="flex flex-col items-center gap-1 p-1 text-gray-500 hover:text-[#124BCE] cursor-pointer"
+          onClick={() => navigate('/app/dashboard')}
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-xl cursor-pointer ${
+            currentRoute === '/app/dashboard' || currentRoute.startsWith('/app/diagnostic') || currentRoute === '/app/interventions'
+              ? 'text-[#176FF5] font-bold'
+              : 'text-[#607089]'
+          }`}
         >
-          <Compass className="w-5 h-5" />
-          <span>Tour</span>
+          <BarChart3 className="w-5 h-5" />
+          <span>Progress</span>
         </button>
 
         <button
-          onClick={() => setMobileSidebarOpen(true)}
-          className="flex flex-col items-center gap-1 p-1 text-gray-500 hover:text-[#124BCE] cursor-pointer"
+          onClick={() => navigate('/app/ai-coach')}
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-xl cursor-pointer ${
+            currentRoute === '/app/ai-coach' ? 'text-[#176FF5] font-bold' : 'text-[#607089]'
+          }`}
         >
-          <Menu className="w-5 h-5" />
-          <span>Menu</span>
+          <Bot className="w-5 h-5" />
+          <span>AI Coach</span>
         </button>
       </div>
 
