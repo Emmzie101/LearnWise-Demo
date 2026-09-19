@@ -284,20 +284,50 @@ export interface LearningReflection {
   cognitiveEnergy: 1 | 2 | 3 | 4 | 5;
 }
 
+export type EvidenceStatus = 'insufficient' | 'emerging' | 'sufficient';
+
+export interface InterventionSuccessMeasurement {
+  baselineMetric: string;
+  targetMetric: string;
+  evaluationWindow: string; // e.g. "Next 6 retrieval attempts"
+  successCondition: string; // e.g. "Achieving >= 70% accuracy across window"
+}
+
+export interface InterventionAdaptationRule {
+  ifImproved: string;
+  ifStillWeak: string;
+  ifCalibrationRemainsPoor?: string;
+}
+
 export interface Intervention {
   id: string;
   title: string;
   targetDimension: PlsfrDimensionKey;
+  targetBottleneck?: string;
   problem: string;
   reason: string;
   action: string;
   frequency: string;
   expectedOutcome: string;
   priority: 'High' | 'Medium' | 'Low';
-  status: 'Active' | 'Completed' | 'Dismissed';
+  status: 'Active' | 'Practiced' | 'Completed' | 'Dismissed';
   evidenceOrigin: string;
   metricBefore?: string;
   metricAfter?: string;
+  successMeasurement?: InterventionSuccessMeasurement;
+  adaptationRule?: InterventionAdaptationRule;
+}
+
+export interface AssimilationMetrics {
+  capabilityGrowthScore: number | null; // 0-100 operational index or null if no evidence
+  retrievalAccuracy: number | null; // 0-100 or null if no attempts
+  applicationTransferRate: number | null; // 0-100 or null if no attempts
+  confidenceCalibrationRate: number | null; // % well-calibrated or null
+  retentionDurability: number | null; // 0-100 or null if no concepts
+  totalConcepts: number;
+  masteredConcepts: number;
+  strengths: string[];
+  bottlenecks: string[];
 }
 
 export interface Recommendation {

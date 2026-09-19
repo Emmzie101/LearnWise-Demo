@@ -73,7 +73,7 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({ onNavigate
                     {plan.priority} Priority
                   </span>
                   <span className="text-xs font-semibold text-[#8A96A8]">
-                    Remediates: {plan.targetBottleneck}
+                    Remediates: {plan.targetBottleneck || plan.targetDimension || 'Cognitive Bottleneck'}
                   </span>
                   {plan.status === 'Completed' && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -84,17 +84,17 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({ onNavigate
                 </div>
 
                 <h3 className="text-base sm:text-lg font-bold font-heading text-[#10233F]">
-                  {plan.interventionName}
+                  {plan.title || (plan as any).interventionName}
                 </h3>
 
                 <p className="text-xs sm:text-sm text-[#607089] leading-relaxed">
-                  {plan.description}
+                  {plan.action || plan.problem || (plan as any).description}
                 </p>
 
                 {/* Plain-language explanation */}
                 <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] space-y-1">
                   <div className="text-[11px] font-bold text-[#176FF5] uppercase tracking-wider">Cognitive Science Rationale:</div>
-                  <p className="text-xs text-[#607089] leading-relaxed">{plan.rationale}</p>
+                  <p className="text-xs text-[#607089] leading-relaxed">{plan.reason || plan.expectedOutcome || (plan as any).rationale}</p>
                 </div>
               </div>
 

@@ -28,13 +28,13 @@ export const CaptureView: React.FC<CaptureViewProps> = ({ onNavigate, onStartWal
   const [tagsInput, setTagsInput] = useState('');
   const [savedConceptId, setSavedConceptId] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !definition.trim()) return;
 
     const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
 
-    const newId = addConcept({
+    const newId = await addConcept({
       goalId,
       title: title.trim(),
       definition: definition.trim(),

@@ -15,7 +15,8 @@ import {
   DiagnosticResponse,
   DiagnosticReport,
   ConceptState,
-  RetrievalErrorType
+  RetrievalErrorType,
+  AssimilationMetrics
 } from '../types';
 import { 
   DEMO_LEARNER_PROFILE, 
@@ -46,6 +47,34 @@ import {
   abandonActiveAssessment,
   saveDiagnosticReport
 } from '../services/diagnosticService';
+import {
+  getLearningGoals,
+  saveLearningGoal,
+  getStrategyPlanByGoalId,
+  saveStrategyPlan as dbSaveStrategyPlan,
+  getConceptsByUserId,
+  saveConcept as dbSaveConcept,
+  updateConceptProgress as dbUpdateConceptProgress,
+  getRetrievalAttempts,
+  saveRetrievalAttempt as dbSaveRetrievalAttempt,
+  getApplicationAttempts,
+  saveApplicationAttempt as dbSaveApplicationAttempt,
+  getInterventions,
+  saveIntervention as dbSaveIntervention,
+  updateInterventionStatus as dbUpdateInterventionStatus,
+  getRecommendations,
+  saveRecommendation as dbSaveRecommendation,
+  dismissRecommendation as dbDismissRecommendation,
+  getLearningReflections,
+  saveLearningReflection as dbSaveLearningReflection,
+  logLearningEvent
+} from '../services/learningEngineService';
+import {
+  evaluatePersonalisedBottleneck,
+  generateDeterministicStrategyPlan,
+  PersonalisedBottleneckRecommendation,
+  getRecentAttempts
+} from '../utils/bottleneckEngine';
 
 const DEMO_STORAGE_KEY = 'learnwise_demo_v1';
 
@@ -97,18 +126,6 @@ function hasStoredSupabaseSession(): boolean {
   return false;
 }
 
-interface AssimilationMetrics {
-  capabilityGrowthScore: number; // 0-100
-  retrievalAccuracy: number; // 0-100
-  applicationTransferRate: number; // 0-100
-  confidenceCalibrationRate: number; // % well calibrated
-  retentionDurability: number; // 0-100
-  totalConcepts: number;
-  masteredConcepts: number;
-  strengths: string[];
-  bottlenecks: string[];
-}
-
 interface LearnerContextType {
   isAuthenticated: boolean;
   isDemoAccount: boolean;
@@ -130,9 +147,9 @@ interface LearnerContextType {
   metrics: AssimilationMetrics;
   nextBestAction: Recommendation | null;
   activeAssessmentId: string | null;
+  bottleneckRecommendation: PersonalisedBottleneckRecommendation | null;
 
   // Actions
-  login: (email: string, name: string) => void;
   logout: () => void;
   loadDemoAccount: () => void;
   resetToFreshAccount: () => void;
@@ -146,15 +163,17 @@ interface LearnerContextType {
   retakeDiagnostic: () => Promise<void>;
   setActiveAssessmentId: (id: string | null) => void;
   refreshLearnerState: () => Promise<void>;
-  createGoal: (goal: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => void;
-  captureConcept: (concept: Omit<Concept, 'id' | 'state' | 'recallSuccessCount' | 'recallFailureCount' | 'applicationSuccessCount' | 'applicationFailureCount' | 'reinforcementIntervalDays'>) => string;
+  createGoal: (goal: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => Promise<LearningGoal>;
+  addGoal: (goal: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => Promise<LearningGoal>;
+  captureConcept: (concept: Omit<Concept, 'id' | 'state' | 'recallSuccessCount' | 'recallFailureCount' | 'applicationSuccessCount' | 'applicationFailureCount' | 'reinforcementIntervalDays'>) => Promise<string> | string;
+  addConcept: (concept: any) => Promise<string> | string;
   updateConceptState: (conceptId: string, newState: ConceptState) => void;
   submitRetrievalAttempt: (attempt: Omit<RetrievalAttempt, 'id' | 'timestamp' | 'calibrationStatus'>) => void;
-  submitApplicationAttempt: (attempt: Omit<ApplicationAttempt, 'id' | 'timestamp'>) => void;
+  submitApplicationAttempt: (attempt: any) => void;
   submitReflection: (reflection: Omit<LearningReflection, 'id' | 'timestamp'>) => void;
   updateInterventionStatus: (id: string, status: 'Active' | 'Completed' | 'Dismissed') => void;
   dismissRecommendation: (id: string) => void;
-  setStrategyPlan: (plan: LearningStrategyPlan) => void;
+  setStrategyPlan: (plan: LearningStrategyPlan) => Promise<void> | void;
 }
 
 const LearnerContext = createContext<LearnerContextType | null>(null);
@@ -402,6 +421,19 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return recommendations[0];
   }, [recommendations]);
 
+  // Deterministic Personalised Bottleneck Evaluation
+  const bottleneckRecommendation = useMemo<PersonalisedBottleneckRecommendation | null>(() => {
+    if (!diagnosticCompleted && !diagnosticReport && !isDemoAccount) return null;
+    const currentGoal = goals.find(g => g.id === selectedGoalId) || goals[0] || null;
+    return evaluatePersonalisedBottleneck({
+      dimensions,
+      diagnosticReport,
+      goal: currentGoal,
+      retrievalAttempts,
+      applicationAttempts,
+    });
+  }, [diagnosticCompleted, diagnosticReport, isDemoAccount, goals, selectedGoalId, dimensions, retrievalAttempts, applicationAttempts]);
+
   // Adaptive Engine Rule Evaluator (Runs after user attempts or changes)
   const evaluateAdaptiveRules = useCallback((
     currentRetrievals: RetrievalAttempt[],
@@ -409,7 +441,6 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     currentConcepts: Concept[]
   ) => {
     const newRecommendations: Recommendation[] = [];
-    const newInterventions: Intervention[] = [...interventions];
 
     // Rule 1: Weak Retrieval (<60%) or passive review
     const totalRet = currentRetrievals.length;
@@ -471,8 +502,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const combined = [...newRecommendations, ...prev.filter(p => !newRecommendations.some(n => n.type === p.type))];
         return combined.slice(0, 5); // Keep top 5
       });
+
+      if (user && !isDemoAccount) {
+        for (const rec of newRecommendations) {
+          dbSaveRecommendation(user.id, rec).catch(err => {
+            console.warn('[LearnerContext] Failed to persist adaptive recommendation:', err);
+          });
+        }
+      }
     }
-  }, [interventions]);
+  }, [user, isDemoAccount]);
 
   // Hydrate authenticated user state from Supabase
   const refreshLearnerState = useCallback(async () => {
@@ -514,10 +553,49 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setDiagnosticResponses(savedResponses);
         diagnosticResponsesRef.current = savedResponses;
       }
+
+      // 5. Learning Goals
+      const dbGoals = await getLearningGoals(user.id);
+      setGoals(dbGoals);
+      const activeGoalId = selectedGoalId && dbGoals.some(g => g.id === selectedGoalId)
+        ? selectedGoalId
+        : dbGoals.length > 0 ? dbGoals[0].id : '';
+      if (activeGoalId) {
+        setSelectedGoalId(activeGoalId);
+        // 6. Strategy Plan for active goal
+        const plan = await getStrategyPlanByGoalId(user.id, activeGoalId);
+        if (plan) {
+          setStrategyPlanState(plan);
+        }
+      }
+
+      // 7. Concepts
+      const dbConcepts = await getConceptsByUserId(user.id);
+      setConcepts(dbConcepts);
+
+      // 8. Retrieval Attempts
+      const dbRetrievals = await getRetrievalAttempts(user.id);
+      setRetrievalAttempts(dbRetrievals);
+
+      // 9. Application Attempts
+      const dbApps = await getApplicationAttempts(user.id);
+      setApplicationAttempts(dbApps);
+
+      // 10. Interventions
+      const dbInterventions = await getInterventions(user.id);
+      setInterventions(dbInterventions);
+
+      // 11. Recommendations
+      const dbRecommendations = await getRecommendations(user.id);
+      setRecommendations(dbRecommendations);
+
+      // 12. Reflections
+      const dbReflections = await getLearningReflections(user.id);
+      setReflections(dbReflections);
     } catch (err) {
       console.error('[LearnerContext] Error hydrating learner state:', err);
     }
-  }, [user, isDemoAccount]);
+  }, [user, isDemoAccount, selectedGoalId]);
 
   // Synchronize authenticated identity from Supabase Auth
   useEffect(() => {
@@ -740,9 +818,50 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // 4. Mark diagnostic_assessment completed
       await completeAssessment(assessmentId, user.id);
+
+      // 5. Persist initial interventions to Supabase
+      if (result.initialInterventions && result.initialInterventions.length > 0) {
+        for (const initIntervention of result.initialInterventions) {
+          try {
+            await dbSaveIntervention(user.id, initIntervention);
+          } catch (err) {
+            console.warn('[LearnerContext] Failed to persist initial intervention:', err);
+          }
+        }
+      }
+
+      // 6. Persist primary bottleneck recommendation to Supabase
+      const initBottleneck = evaluatePersonalisedBottleneck({
+        dimensions: result.updatedDimensions,
+        diagnosticReport: result.report,
+        goal: goals[0] || null,
+      });
+
+      const initRec: Recommendation = {
+        id: `rec_diag_${Date.now()}`,
+        type: initBottleneck.recommendedIntervention.type as any,
+        title: initBottleneck.recommendedIntervention.title,
+        reason: initBottleneck.recommendedIntervention.rationale,
+        sourceSignal: `Diagnostic Assessment: Primary bottleneck detected in ${initBottleneck.primaryBottleneck.title} (${initBottleneck.primaryBottleneck.score}/100).`,
+        actionPrompt: initBottleneck.nextAction.title,
+        actionRoute: initBottleneck.nextAction.route,
+        priority: 'High',
+        createdAt: new Date().toISOString(),
+      };
+
+      try {
+        await dbSaveRecommendation(user.id, initRec);
+      } catch (err) {
+        console.warn('[LearnerContext] Failed to persist initial recommendation:', err);
+      }
+
+      // 7. Log diagnostic completion event
+      await logLearningEvent(user.id, 'diagnostic_completed', 'diagnostic_reports', result.report.id, {
+        primary_bottleneck: result.report.primaryBottleneck?.key,
+      });
     }
 
-    // 5. Update React state
+    // Update React state
     setDimensions(result.updatedDimensions);
     setDiagnosticReport(result.report);
     setInterventions(result.initialInterventions);
@@ -768,43 +887,166 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setDiagnosticCompleted(false);
   };
 
-  const createGoal = (goalData: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => {
-    const newGoal: LearningGoal = {
-      ...goalData,
-      id: `goal_${Date.now()}`,
-      totalConceptsCount: 0,
-      masteredConceptsCount: 0,
-    };
-    setGoals(prev => [newGoal, ...prev]);
-    setSelectedGoalId(newGoal.id);
+  const createGoal = async (goalData: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>): Promise<LearningGoal> => {
+    let createdGoal: LearningGoal;
+
+    if (user && !isDemoAccount) {
+      createdGoal = await saveLearningGoal(user.id, goalData);
+
+      // Evaluate bottleneck for this goal and generate deterministic strategy plan
+      const bottleneck = evaluatePersonalisedBottleneck({
+        dimensions,
+        diagnosticReport,
+        goal: createdGoal,
+        retrievalAttempts,
+        applicationAttempts,
+      });
+
+      const generatedPlan = generateDeterministicStrategyPlan({
+        goal: createdGoal,
+        primaryBottleneck: bottleneck.primaryBottleneck,
+        secondaryBottleneck: bottleneck.secondaryBottleneck,
+        strength: bottleneck.leverageableStrength,
+      });
+
+      // If caller provided phases, preserve them
+      if (goalData.phases && goalData.phases.length > 0) {
+        generatedPlan.phases = goalData.phases;
+      }
+
+      const savedPlan = await dbSaveStrategyPlan(user.id, generatedPlan);
+      setStrategyPlanState(savedPlan);
+
+      // Save initial concept schemas for this goal so the learner has material immediately
+      const goalConceptsExist = concepts.some(c => c.goalId === createdGoal.id);
+      if (!goalConceptsExist) {
+        const initialConceptsToSeed = (generatedPlan.phases[0]?.concepts || ['Fundamental Invariants', 'Core Rules & Definitions']).slice(0, 2);
+        for (const cName of initialConceptsToSeed) {
+          try {
+            const savedC = await dbSaveConcept(user.id, {
+              goalId: createdGoal.id,
+              title: cName,
+              definition: `Core operational principles and boundary conditions defining ${cName} within ${createdGoal.title}.`,
+              notes: `Foundational schema for ${createdGoal.domain}. Focus on closed-book retrieval.`,
+              taskType: 'Conceptual',
+              domain: createdGoal.domain,
+              source: 'Curriculum Specification',
+              prerequisites: [],
+              state: 'Introduced',
+              reinforcementIntervalDays: 1,
+              recallSuccessCount: 0,
+              recallFailureCount: 0,
+              applicationSuccessCount: 0,
+              applicationFailureCount: 0,
+            });
+            setConcepts(prev => [savedC, ...prev]);
+          } catch (err) {
+            console.warn('[LearnerContext] Failed to seed initial concept:', err);
+          }
+        }
+      }
+
+      // Save targeted recommendation to Supabase
+      const rec: Recommendation = {
+        id: `rec_goal_${Date.now()}`,
+        type: bottleneck.recommendedIntervention.type as any,
+        title: `Strategy Activated: ${createdGoal.title}`,
+        reason: bottleneck.goalConnection,
+        sourceSignal: `Goal Architecture: ${bottleneck.primaryBottleneck.title} targeted.`,
+        actionPrompt: bottleneck.nextAction.title,
+        actionRoute: bottleneck.nextAction.route,
+        priority: 'High',
+        createdAt: new Date().toISOString(),
+      };
+
+      try {
+        await dbSaveRecommendation(user.id, rec);
+        setRecommendations(prev => [rec, ...prev.slice(0, 4)]);
+      } catch (err) {
+        console.warn('[LearnerContext] Failed to save goal recommendation:', err);
+      }
+
+      await logLearningEvent(user.id, 'goal_created', 'learning_goals', createdGoal.id, {
+        title: createdGoal.title,
+        domain: createdGoal.domain,
+      });
+    } else {
+      createdGoal = {
+        ...goalData,
+        id: `goal_${Date.now()}`,
+        totalConceptsCount: 0,
+        masteredConceptsCount: 0,
+      };
+
+      const bottleneck = evaluatePersonalisedBottleneck({
+        dimensions,
+        diagnosticReport,
+        goal: createdGoal,
+        retrievalAttempts,
+        applicationAttempts,
+      });
+
+      const plan = generateDeterministicStrategyPlan({
+        goal: createdGoal,
+        primaryBottleneck: bottleneck.primaryBottleneck,
+        secondaryBottleneck: bottleneck.secondaryBottleneck,
+        strength: bottleneck.leverageableStrength,
+      });
+
+      if (goalData.phases && goalData.phases.length > 0) {
+        plan.phases = goalData.phases;
+      }
+      setStrategyPlanState(plan);
+    }
+
+    setGoals(prev => [createdGoal, ...prev]);
+    setSelectedGoalId(createdGoal.id);
+    return createdGoal;
   };
 
-  const captureConcept = (conceptData: Omit<Concept, 'id' | 'state' | 'recallSuccessCount' | 'recallFailureCount' | 'applicationSuccessCount' | 'applicationFailureCount' | 'reinforcementIntervalDays'>): string => {
-    const newId = `c_${Date.now()}`;
-    const newConcept: Concept = {
-      ...conceptData,
-      id: newId,
-      state: 'Introduced',
-      recallSuccessCount: 0,
-      recallFailureCount: 0,
-      applicationSuccessCount: 0,
-      applicationFailureCount: 0,
-      reinforcementIntervalDays: 1,
-      nextReviewAt: new Date(Date.now() + 86400000).toISOString(),
-    };
-    setConcepts(prev => [newConcept, ...prev]);
+  const addGoal = createGoal;
 
-    // Update goal count
-    setGoals(prev => prev.map(g => g.id === conceptData.goalId ? { ...g, totalConceptsCount: g.totalConceptsCount + 1 } : g));
-
-    return newId;
+  const captureConcept = async (conceptData: any): Promise<string> => {
+    if (user && !isDemoAccount) {
+      const savedConcept = await dbSaveConcept(user.id, conceptData);
+      setConcepts(prev => [savedConcept, ...prev]);
+      setGoals(prev => prev.map(g => g.id === conceptData.goalId ? { ...g, totalConceptsCount: g.totalConceptsCount + 1 } : g));
+      await logLearningEvent(user.id, 'concept_created', 'concepts', savedConcept.id, {
+        title: savedConcept.title,
+        domain: savedConcept.domain,
+      });
+      return savedConcept.id;
+    } else {
+      const newId = `c_${Date.now()}`;
+      const newConcept: Concept = {
+        ...conceptData,
+        id: newId,
+        state: 'Introduced',
+        recallSuccessCount: 0,
+        recallFailureCount: 0,
+        applicationSuccessCount: 0,
+        applicationFailureCount: 0,
+        reinforcementIntervalDays: 1,
+        nextReviewAt: new Date(Date.now() + 86400000).toISOString(),
+      };
+      setConcepts(prev => [newConcept, ...prev]);
+      setGoals(prev => prev.map(g => g.id === conceptData.goalId ? { ...g, totalConceptsCount: g.totalConceptsCount + 1 } : g));
+      return newId;
+    }
   };
+
+  const addConcept = captureConcept;
 
   const updateConceptState = (conceptId: string, newState: ConceptState) => {
     setConcepts(prev => prev.map(c => c.id === conceptId ? { ...c, state: newState } : c));
+    if (user && !isDemoAccount) {
+      dbUpdateConceptProgress(user.id, conceptId, { state: newState }).catch(err => {
+        console.warn('[LearnerContext] Failed to update concept state in DB:', err);
+      });
+    }
   };
 
-  const submitRetrievalAttempt = (attemptData: Omit<RetrievalAttempt, 'id' | 'timestamp' | 'calibrationStatus'>) => {
+  const submitRetrievalAttempt = async (attemptData: Omit<RetrievalAttempt, 'id' | 'timestamp' | 'calibrationStatus'>) => {
     // Calibration calculation
     let calibrationStatus: 'well_calibrated' | 'overconfident' | 'underconfident' = 'well_calibrated';
     if (attemptData.isCorrect && attemptData.confidenceRating <= 2) {
@@ -813,39 +1055,52 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       calibrationStatus = 'overconfident';
     }
 
-    const newAttempt: RetrievalAttempt = {
-      ...attemptData,
-      id: `ret_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      calibrationStatus,
-    };
+    let newAttempt: RetrievalAttempt;
+    if (user && !isDemoAccount) {
+      newAttempt = await dbSaveRetrievalAttempt(user.id, {
+        ...attemptData,
+        calibrationStatus,
+      });
+    } else {
+      newAttempt = {
+        ...attemptData,
+        id: `ret_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        calibrationStatus,
+      };
+    }
 
     const updatedAttempts = [newAttempt, ...retrievalAttempts];
     setRetrievalAttempts(updatedAttempts);
 
     // Update concept statistics and progressive state
+    const targetConcept = concepts.find(c => c.id === attemptData.conceptId);
+    let updatedConceptState: ConceptState = targetConcept?.state || 'Introduced';
+    let newSuccess = targetConcept?.recallSuccessCount || 0;
+    let newFailure = targetConcept?.recallFailureCount || 0;
+
+    if (attemptData.isCorrect) {
+      newSuccess += 1;
+      if (targetConcept?.state === 'Introduced' || targetConcept?.state === 'Processed') {
+        updatedConceptState = 'Retrieved';
+      } else if (targetConcept?.state === 'Retrieved' && (targetConcept?.applicationSuccessCount || 0) > 0) {
+        updatedConceptState = 'Reinforced';
+      }
+    } else {
+      newFailure += 1;
+    }
+
+    // Spaced interval update
+    const currentInterval = targetConcept?.reinforcementIntervalDays || 1;
+    const newInterval = attemptData.isCorrect 
+      ? Math.min(14, Math.round(currentInterval * 1.8) + 1)
+      : Math.max(1, Math.floor(currentInterval * 0.5));
+
     const updatedConcepts = concepts.map(c => {
       if (c.id === attemptData.conceptId) {
-        const newSuccess = attemptData.isCorrect ? c.recallSuccessCount + 1 : c.recallSuccessCount;
-        const newFailure = !attemptData.isCorrect ? c.recallFailureCount + 1 : c.recallFailureCount;
-        
-        let newState = c.state;
-        if (attemptData.isCorrect) {
-          if (c.state === 'Introduced' || c.state === 'Processed') {
-            newState = 'Retrieved';
-          } else if (c.state === 'Retrieved' && c.applicationSuccessCount > 0) {
-            newState = 'Reinforced';
-          }
-        }
-
-        // Spaced interval update
-        const newInterval = attemptData.isCorrect 
-          ? Math.min(14, Math.round(c.reinforcementIntervalDays * 1.8) + 1)
-          : Math.max(1, Math.floor(c.reinforcementIntervalDays * 0.5));
-
         return {
           ...c,
-          state: newState,
+          state: updatedConceptState,
           recallSuccessCount: newSuccess,
           recallFailureCount: newFailure,
           lastReviewedAt: new Date().toISOString(),
@@ -858,38 +1113,74 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
     setConcepts(updatedConcepts);
 
+    if (user && !isDemoAccount) {
+      await dbUpdateConceptProgress(user.id, attemptData.conceptId, {
+        state: updatedConceptState,
+        recallSuccessCount: newSuccess,
+        recallFailureCount: newFailure,
+        lastConfidenceRating: attemptData.confidenceRating,
+        reinforcementIntervalDays: newInterval,
+        lastReviewedAt: new Date().toISOString(),
+        nextReviewAt: new Date(Date.now() + newInterval * 86400000).toISOString(),
+      });
+      await logLearningEvent(user.id, 'retrieval_attempted', 'concepts', attemptData.conceptId, {
+        is_correct: attemptData.isCorrect,
+        calibration_status: calibrationStatus,
+      });
+    }
+
     // Trigger Adaptive Engine
     evaluateAdaptiveRules(updatedAttempts, applicationAttempts, updatedConcepts);
   };
 
-  const submitApplicationAttempt = (attemptData: Omit<ApplicationAttempt, 'id' | 'timestamp'>) => {
-    const newAttempt: ApplicationAttempt = {
-      ...attemptData,
-      id: `app_${Date.now()}`,
-      timestamp: new Date().toISOString(),
+  const submitApplicationAttempt = async (attemptData: any) => {
+    const normalized: Omit<ApplicationAttempt, 'id' | 'timestamp'> = {
+      conceptId: attemptData.conceptId,
+      scenario: attemptData.scenario || attemptData.challengePrompt || 'Authentic Context Challenge',
+      taskPrompt: attemptData.taskPrompt || attemptData.challengePrompt || 'Apply concept invariants to solve this constraint.',
+      userSolution: attemptData.userSolution,
+      scorePercentage: attemptData.scorePercentage ?? attemptData.score ?? 75,
+      isProficient: attemptData.isProficient ?? attemptData.passed ?? true,
+      feedbackNotes: attemptData.feedbackNotes || attemptData.evaluatorFeedback || 'Applied concept to scenario.',
+      confidenceRating: attemptData.confidenceRating || 3,
     };
+
+    let newAttempt: ApplicationAttempt;
+    if (user && !isDemoAccount) {
+      newAttempt = await dbSaveApplicationAttempt(user.id, normalized);
+    } else {
+      newAttempt = {
+        ...normalized,
+        id: `app_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
 
     const updatedApps = [newAttempt, ...applicationAttempts];
     setApplicationAttempts(updatedApps);
 
     // Update concept state to 'Applied' or 'Stable' if both recall and application are proficient
-    const updatedConcepts = concepts.map(c => {
-      if (c.id === attemptData.conceptId) {
-        const newSuccess = attemptData.isProficient ? c.applicationSuccessCount + 1 : c.applicationSuccessCount;
-        const newFailure = !attemptData.isProficient ? c.applicationFailureCount + 1 : c.applicationFailureCount;
-        
-        let newState = c.state;
-        if (attemptData.isProficient) {
-          if (c.recallSuccessCount >= 2 && newSuccess >= 2) {
-            newState = 'Stable';
-          } else {
-            newState = 'Applied';
-          }
-        }
+    const targetConcept = concepts.find(c => c.id === normalized.conceptId);
+    let newSuccess = targetConcept?.applicationSuccessCount || 0;
+    let newFailure = targetConcept?.applicationFailureCount || 0;
+    let updatedConceptState: ConceptState = targetConcept?.state || 'Introduced';
 
+    if (normalized.isProficient) {
+      newSuccess += 1;
+      if ((targetConcept?.recallSuccessCount || 0) >= 2 && newSuccess >= 2) {
+        updatedConceptState = 'Stable';
+      } else {
+        updatedConceptState = 'Applied';
+      }
+    } else {
+      newFailure += 1;
+    }
+
+    const updatedConcepts = concepts.map(c => {
+      if (c.id === normalized.conceptId) {
         return {
           ...c,
-          state: newState,
+          state: updatedConceptState,
           applicationSuccessCount: newSuccess,
           applicationFailureCount: newFailure,
         };
@@ -904,38 +1195,82 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { ...g, masteredConceptsCount: mastered };
     }));
 
+    if (user && !isDemoAccount) {
+      await dbUpdateConceptProgress(user.id, normalized.conceptId, {
+        state: updatedConceptState,
+        applicationSuccessCount: newSuccess,
+        applicationFailureCount: newFailure,
+      });
+      await logLearningEvent(user.id, 'application_attempted', 'concepts', normalized.conceptId, {
+        is_proficient: normalized.isProficient,
+        score_percentage: normalized.scorePercentage,
+      });
+    }
+
     // Trigger Adaptive Engine
     evaluateAdaptiveRules(retrievalAttempts, updatedApps, updatedConcepts);
   };
 
-  const submitReflection = (reflectionData: Omit<LearningReflection, 'id' | 'timestamp'>) => {
-    const newReflection: LearningReflection = {
-      ...reflectionData,
-      id: `ref_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-    };
+  const submitReflection = async (reflectionData: Omit<LearningReflection, 'id' | 'timestamp'>) => {
+    let newReflection: LearningReflection;
+    if (user && !isDemoAccount) {
+      newReflection = await dbSaveLearningReflection(user.id, reflectionData);
+      await logLearningEvent(user.id, 'reflection_submitted', 'learning_reflections', newReflection.id, {
+        energy: reflectionData.cognitiveEnergy,
+      });
+    } else {
+      newReflection = {
+        ...reflectionData,
+        id: `ref_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
     setReflections(prev => [newReflection, ...prev]);
 
     // Boost self-regulation score slightly for consistent reflection
-    setDimensions(prev => prev.map(d => {
+    const updatedDimensions = dimensions.map(d => {
       if (d.key === 'self_regulation') {
         const newScore = Math.min(100, d.score + 1);
         return { ...d, score: newScore, evidenceCount: d.evidenceCount + 1 };
       }
       return d;
-    }));
+    });
+    setDimensions(updatedDimensions);
+
+    if (user && !isDemoAccount) {
+      upsertDimensions(user.id, updatedDimensions).catch(err => {
+        console.warn('[LearnerContext] Failed to upsert dimensions on reflection:', err);
+      });
+    }
   };
 
   const updateInterventionStatus = (id: string, status: 'Active' | 'Completed' | 'Dismissed') => {
     setInterventions(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+    if (user && !isDemoAccount) {
+      dbUpdateInterventionStatus(user.id, id, status).catch(err => {
+        console.warn('[LearnerContext] Failed to update intervention status:', err);
+      });
+    }
   };
 
   const dismissRecommendation = (id: string) => {
     setRecommendations(prev => prev.filter(r => r.id !== id));
+    if (user && !isDemoAccount) {
+      dbDismissRecommendation(user.id, id).catch(err => {
+        console.warn('[LearnerContext] Failed to dismiss recommendation:', err);
+      });
+    }
   };
 
-  const setStrategyPlan = (plan: LearningStrategyPlan) => {
+  const setStrategyPlan = async (plan: LearningStrategyPlan) => {
     setStrategyPlanState(plan);
+    if (user && !isDemoAccount && plan.goalId) {
+      try {
+        await dbSaveStrategyPlan(user.id, plan);
+      } catch (err) {
+        console.warn('[LearnerContext] Failed to save strategy plan to DB:', err);
+      }
+    }
   };
 
   return (
@@ -961,6 +1296,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         metrics,
         nextBestAction,
         activeAssessmentId,
+        bottleneckRecommendation,
         login,
         logout,
         loadDemoAccount,
@@ -976,7 +1312,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveAssessmentId,
         refreshLearnerState,
         createGoal,
+        addGoal,
         captureConcept,
+        addConcept,
         updateConceptState,
         submitRetrievalAttempt,
         submitApplicationAttempt,
