@@ -156,15 +156,21 @@ export const Navigation: React.FC<NavigationProps> = ({ currentRoute, onNavigate
             <div className="flex items-center gap-3 text-xs">
               <div>
                 <span className="text-gray-400 text-[10px] block">Capability</span>
-                <span className="font-bold text-[#124BCE] font-heading">{metrics.capabilityGrowthScore}%</span>
+                <span className="font-bold text-[#124BCE] font-heading">
+                  {metrics.capabilityGrowthScore !== null ? `${metrics.capabilityGrowthScore}%` : '--'}
+                </span>
               </div>
               <div>
                 <span className="text-gray-400 text-[10px] block">Retrieval</span>
-                <span className="font-bold text-emerald-600 font-heading">{metrics.retrievalAccuracy}%</span>
+                <span className="font-bold text-emerald-600 font-heading">
+                  {metrics.retrievalAccuracy !== null ? `${metrics.retrievalAccuracy}%` : '--'}
+                </span>
               </div>
               <div>
                 <span className="text-gray-400 text-[10px] block">Transfer</span>
-                <span className="font-bold text-amber-600 font-heading">{metrics.applicationTransferRate}%</span>
+                <span className="font-bold text-amber-600 font-heading">
+                  {metrics.applicationTransferRate !== null ? `${metrics.applicationTransferRate}%` : '--'}
+                </span>
               </div>
             </div>
           </div>
@@ -289,9 +295,15 @@ export const Navigation: React.FC<NavigationProps> = ({ currentRoute, onNavigate
             <div className="text-xs font-semibold text-[#071A3A]">{profile.name}</div>
             <div className="text-[11px] text-gray-500">{profile.institution} — {profile.fieldOfStudy}</div>
             <div className="mt-2 flex items-center gap-3 text-xs">
-              <span className="text-[#124BCE] font-bold">Growth: {metrics.capabilityGrowthScore}%</span>
-              <span className="text-emerald-700 font-bold">Retrieval: {metrics.retrievalAccuracy}%</span>
-              <span className="text-amber-700 font-bold">Transfer: {metrics.applicationTransferRate}%</span>
+              <span className="text-[#124BCE] font-bold">
+                Growth: {metrics.capabilityGrowthScore !== null ? `${metrics.capabilityGrowthScore}%` : '--'}
+              </span>
+              <span className="text-emerald-700 font-bold">
+                Retrieval: {metrics.retrievalAccuracy !== null ? `${metrics.retrievalAccuracy}%` : '--'}
+              </span>
+              <span className="text-amber-700 font-bold">
+                Transfer: {metrics.applicationTransferRate !== null ? `${metrics.applicationTransferRate}%` : '--'}
+              </span>
             </div>
           </div>
 

@@ -55,7 +55,7 @@ export const AISuiteView: React.FC<AISuiteViewProps> = ({ initialTab = 'coach', 
     {
       id: '1',
       sender: 'assistant',
-      text: `I have analyzed your live telemetry. Your current Capability Index is ${metrics.capabilityGrowthScore}/100. Your retrieval accuracy is ${metrics.retrievalAccuracy}%, while your transfer application rate is ${metrics.applicationTransferRate}%. What performance bottleneck would you like to dissect?`,
+      text: `I have analyzed your live telemetry. Your current Capability Index is ${metrics.capabilityGrowthScore !== null ? `${metrics.capabilityGrowthScore}/100` : 'Pending'}. Your retrieval accuracy is ${metrics.retrievalAccuracy !== null ? `${metrics.retrievalAccuracy}%` : 'Pending'}, while your transfer application rate is ${metrics.applicationTransferRate !== null ? `${metrics.applicationTransferRate}%` : 'Pending'}. What performance bottleneck would you like to dissect?`,
       timestamp: 'Just now',
     },
   ]);
@@ -147,7 +147,9 @@ export const AISuiteView: React.FC<AISuiteViewProps> = ({ initialTab = 'coach', 
       } else if (activeTab === 'architect') {
         fallbackText = `To master this, avoid jumping straight to problem sets. Phase 1: Define invariant vocabulary. Phase 2: Closed-book algorithmic trace. Phase 3: Unfamiliar real-world case study. Phase 4: 7-day spaced reinforcement.`;
       } else {
-        fallbackText = `Diagnostic pattern detected: Your retrieval rate (${metrics.retrievalAccuracy}%) exceeds application (${metrics.applicationTransferRate}%). This indicates recognition memory without operational transfer schemas. Schedule 2 far-transfer case studies today.`;
+        const retStr = metrics.retrievalAccuracy !== null ? `${metrics.retrievalAccuracy}%` : 'Pending';
+        const appStr = metrics.applicationTransferRate !== null ? `${metrics.applicationTransferRate}%` : 'Pending';
+        fallbackText = `Diagnostic pattern detected: Your retrieval rate (${retStr}) vs application (${appStr}). This indicates telemetry is actively calibrating your operational transfer schemas. Complete focused practice sessions to build evidence.`;
       }
 
       const botMsg: ChatMessage = {

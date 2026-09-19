@@ -14,7 +14,8 @@ import {
   ArrowRight,
   Sparkles,
   ChevronRight,
-  Flame
+  Flame,
+  AlertCircle
 } from 'lucide-react';
 
 interface TodayQueueViewProps {
@@ -30,7 +31,9 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
     dismissRecommendation, 
     metrics, 
     goals, 
-    selectedGoalId 
+    selectedGoalId,
+    diagnosticCompleted,
+    bottleneckRecommendation,
   } = useLearner();
 
   const [activeWorkTab, setActiveWorkTab] = useState<'all' | 'retrieve' | 'apply' | 'reinforce'>('all');
@@ -99,6 +102,52 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
         </div>
       </div>
 
+      {/* Diagnostic Call-to-Action if baseline assessment is missing */}
+      {!diagnosticCompleted && (
+        <div className="p-6 rounded-3xl bg-[#EDF5FF] border border-[#176FF5]/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#124BCE] text-white text-[11px] font-bold">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Cognitive Baseline Required</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold font-heading text-[#10233F]">
+              Complete Your Diagnostic Assessment
+            </h3>
+            <p className="text-xs sm:text-sm text-[#607089] leading-relaxed">
+              Your daily queue is personalized using evidence from your diagnostic profile. Take the quick 5-minute diagnostic to reveal your primary learning bottleneck and generate targeted tasks.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('/app/diagnostic')}
+            className="btn-primary-glow px-5 py-2.5 rounded-xl text-xs font-bold shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>Start Diagnostic</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Evidence Certainty Indicator when diagnostic evidence is preliminary or unestablished */}
+      {bottleneckRecommendation && bottleneckRecommendation.evidenceStatus === 'insufficient' ? (
+        <div className="p-4 rounded-2xl bg-blue-50/90 border border-blue-200 text-blue-900 text-xs flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-[#176FF5] shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <span className="font-bold">Baseline Telemetry Required:</span>{' '}
+            {diagnosticCompleted
+              ? 'Complete at least 3 retrieval drills and 2 application challenges to generate reliable telemetry.'
+              : 'Complete the PLSFR+ diagnostic assessment to establish your validated 7-dimension baseline.'}
+          </div>
+        </div>
+      ) : diagnosticCompleted && bottleneckRecommendation && bottleneckRecommendation.evidenceStatus === 'emerging' ? (
+        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="leading-relaxed">
+            <span className="font-bold">Initial recommendation based on preliminary signals.</span>{' '}
+            Complete more practice sessions to calibrate evidence certainty (Current status: <span className="font-bold uppercase tracking-wider">{bottleneckRecommendation.evidenceStatus}</span> with {bottleneckRecommendation.evidenceSummary.totalEvidenceItems} evidence items logged).
+          </div>
+        </div>
+      ) : null}
+
       {/* 2. Primary Next Action */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -110,7 +159,7 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             <VisualCueTooltip
               badgeText="Why this task?"
               title="Automated Priority Algorithm"
-              description="LearnWise prioritizes concepts where memory decay is imminent, or where you have an uncalibrated illusion of competence, to protect your score before exam day."
+              description="LearnWise prioritizes concepts where memory decay is imminent, or where you have an uncalibrated illusion of competence, to ensure durable recall and transfer."
               ruleOfThumb="Doing the hardest retrieval practice first produces the strongest synaptic consolidation."
               onExploreWalkthrough={onStartWalkthrough ? () => onStartWalkthrough(2) : undefined}
             />
@@ -125,9 +174,16 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
 
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-2 max-w-xl">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EDF5FF] text-[#176FF5] text-[11px] font-bold">
-                  <Flame className="w-3 h-3 text-amber-500" />
-                  <span>High Yield Recall Due</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EDF5FF] text-[#176FF5] text-[11px] font-bold">
+                    <Flame className="w-3 h-3 text-amber-500" />
+                    <span>High Yield Task</span>
+                  </div>
+                  {bottleneckRecommendation?.primaryBottleneck && (
+                    <span className="text-[11px] text-[#607089] font-medium">
+                      Targeting: <strong className="text-[#10233F]">{bottleneckRecommendation.primaryBottleneck.title}</strong> ({bottleneckRecommendation.primaryBottleneck.score}/100)
+                    </span>
+                  )}
                 </div>
 
                 <h2 className="text-xl sm:text-2xl font-bold font-heading text-[#10233F] tracking-tight">
@@ -137,6 +193,13 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
                 <p className="text-sm text-[#607089] leading-relaxed font-normal">
                   {nextBestAction.reason}
                 </p>
+
+                {bottleneckRecommendation?.explainabilityWhy && bottleneckRecommendation.explainabilityWhy.length > 0 && (
+                  <div className="pt-1 text-xs text-[#176FF5] font-medium flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#176FF5]" />
+                    <span>Evidence Basis: {bottleneckRecommendation.explainabilityWhy[0]}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center md:items-end gap-2.5 shrink-0">
@@ -213,13 +276,13 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-heading text-emerald-600">
-                {metrics.retrievalAccuracy}%
+                {metrics.retrievalAccuracy !== null ? `${metrics.retrievalAccuracy}%` : 'Pending'}
               </span>
             </div>
             <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                style={{ width: `${metrics.retrievalAccuracy}%` }} 
+                style={{ width: `${metrics.retrievalAccuracy ?? 0}%` }} 
               />
             </div>
           </div>
@@ -234,13 +297,13 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-heading text-amber-600">
-                {metrics.applicationTransferRate}%
+                {metrics.applicationTransferRate !== null ? `${metrics.applicationTransferRate}%` : 'Pending'}
               </span>
             </div>
             <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-amber-500 rounded-full transition-all duration-500" 
-                style={{ width: `${metrics.applicationTransferRate}%` }} 
+                style={{ width: `${metrics.applicationTransferRate ?? 0}%` }} 
               />
             </div>
           </div>
@@ -255,13 +318,18 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-heading text-[#176FF5]">
-                {metrics.confidenceCalibrationRate}%
+                {metrics.confidenceCalibrationRate !== null ? `${metrics.confidenceCalibrationRate}%` : 'Pending'}
               </span>
+              {metrics.overconfidenceIncidents > 0 && (
+                <span className="text-[10px] text-rose-600 font-bold">
+                  ({metrics.overconfidenceIncidents} overconfident)
+                </span>
+              )}
             </div>
             <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-[#176FF5] rounded-full transition-all duration-500" 
-                style={{ width: `${metrics.confidenceCalibrationRate}%` }} 
+                style={{ width: `${metrics.confidenceCalibrationRate ?? 0}%` }} 
               />
             </div>
           </div>
@@ -341,6 +409,13 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
                         <h4 className="font-semibold text-xs text-[#10233F] leading-snug">{concept.title}</h4>
                         <ConceptStateBadge state={concept.state} />
                       </div>
+                      <div className="text-[10px] text-[#176FF5] bg-[#EDF5FF] px-2 py-0.5 rounded-md inline-block font-medium">
+                        {concept.recallFailureCount > 0 
+                          ? `Evidence: ${concept.recallFailureCount} recent recall lapse(s)` 
+                          : concept.state === 'Introduced' 
+                            ? 'Evidence: Newly introduced concept consolidation' 
+                            : 'Evidence: Spaced recall decay boundary reached'}
+                      </div>
                       <div className="flex items-center justify-between text-[11px] text-[#607089] pt-1">
                         <span>{concept.recallSuccessCount} completed</span>
                         <button
@@ -386,6 +461,11 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
                         <h4 className="font-semibold text-xs text-[#10233F] leading-snug">{concept.title}</h4>
                         <ConceptStateBadge state={concept.state} />
                       </div>
+                      <div className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md inline-block font-medium">
+                        {concept.applicationFailureCount > 0
+                          ? `Evidence: ${concept.applicationFailureCount} transfer failure(s) needing remediation`
+                          : 'Evidence: Recall verified; requires novel scenario transfer proof'}
+                      </div>
                       <div className="flex items-center justify-between text-[11px] text-[#607089] pt-1">
                         <span>{concept.applicationSuccessCount} passed</span>
                         <button
@@ -430,6 +510,9 @@ export const TodayQueueView: React.FC<TodayQueueViewProps> = ({ onNavigate, onSt
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-semibold text-xs text-[#10233F] leading-snug">{concept.title}</h4>
                         <ConceptStateBadge state={concept.state} />
+                      </div>
+                      <div className="text-[10px] text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md inline-block font-medium">
+                        Evidence: Interval decay check ({concept.reinforcementIntervalDays}d cycle)
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-[#607089] pt-1">
                         <span className="flex items-center gap-1">

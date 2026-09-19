@@ -74,7 +74,9 @@ function AppContent() {
   }, []);
 
   // Route guard: Protect /app/* routes unless authenticated or in demo mode
-  const isAppRoute = currentRoute.startsWith('/app');
+  // Note: /app/diagnostic and /app/diagnostic/results allow prospective learners to complete the free diagnostic
+  const isPublicAppRoute = currentRoute === '/app/diagnostic' || currentRoute === '/app/diagnostic/results';
+  const isAppRoute = currentRoute.startsWith('/app') && !isPublicAppRoute;
   const isAccessAllowed = user !== null || isDemoAccount;
 
   useEffect(() => {

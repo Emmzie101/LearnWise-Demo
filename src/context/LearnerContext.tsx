@@ -93,11 +93,11 @@ export const DEFAULT_AUTHENTICATED_PROFILE: LearnerProfile = {
 
 export const NEUTRAL_AUTHENTICATED_DIMENSIONS: PlsfrDimension[] = INITIAL_PLSFR_DIMENSIONS.map(d => ({
   ...d,
-  score: 50,
-  strengthLevel: 'Emerging',
-  riskLevel: 'Moderate',
-  confidence: 50,
-  confidenceBand: 'Moderate',
+  score: 0,
+  strengthLevel: 'Developing',
+  riskLevel: 'Low',
+  confidence: 0,
+  confidenceBand: 'Low',
   evidenceCount: 0,
   evidenceBreakdown: {
     selfReportCount: 0,
@@ -372,35 +372,66 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     diagnosticReport,
   ]);
 
-  // Compute real metrics derived dynamically from actual records
+  // Compute real metrics derived dynamically from actual records without fabrication
   const metrics = useMemo<AssimilationMetrics>(() => {
-    // Retrieval accuracy
+    // Retrieval accuracy: requires actual attempts
     const totalRetrievals = retrievalAttempts.length;
     const correctRetrievals = retrievalAttempts.filter(r => r.isCorrect).length;
-    const retrievalAccuracy = totalRetrievals > 0 ? Math.round((correctRetrievals / totalRetrievals) * 100) : 60;
+    const retrievalAccuracy = totalRetrievals > 0 ? Math.round((correctRetrievals / totalRetrievals) * 100) : null;
 
-    // Application transfer rate
+    // Application transfer rate: requires actual attempts
     const totalApplications = applicationAttempts.length;
     const proficientApplications = applicationAttempts.filter(a => a.isProficient).length;
-    const applicationTransferRate = totalApplications > 0 ? Math.round((proficientApplications / totalApplications) * 100) : 45;
+    const applicationTransferRate = totalApplications > 0 ? Math.round((proficientApplications / totalApplications) * 100) : null;
 
-    // Confidence calibration
-    const wellCalibratedCount = retrievalAttempts.filter(r => r.calibrationStatus === 'well_calibrated').length;
-    const confidenceCalibrationRate = totalRetrievals > 0 ? Math.round((wellCalibratedCount / totalRetrievals) * 100) : 50;
+    // Confidence calibration: requires confidence-rated retrieval attempts
+    const confidenceRatedRetrievals = retrievalAttempts.filter(r => r.confidenceRating !== undefined && r.confidenceRating !== null);
+    const wellCalibratedCount = confidenceRatedRetrievals.filter(r => r.calibrationStatus === 'well_calibrated').length;
+    const confidenceCalibrationRate = confidenceRatedRetrievals.length > 0 ? Math.round((wellCalibratedCount / confidenceRatedRetrievals.length) * 100) : null;
 
-    // Retention durability
+    // Overconfidence incidents count
+    const overconfidenceIncidents = retrievalAttempts.filter(r => r.calibrationStatus === 'overconfident').length;
+
+    // Retention durability: requires concepts
     const stableConcepts = concepts.filter(c => c.state === 'Reinforced' || c.state === 'Stable').length;
     const totalConcepts = concepts.length;
-    const retentionDurability = totalConcepts > 0 ? Math.round((stableConcepts / totalConcepts) * 100) : 40;
+    const retentionDurability = totalConcepts > 0 ? Math.round((stableConcepts / totalConcepts) * 100) : null;
 
     // Overall Capability Growth: synthesis of PLSFR scores, retrieval, and application
-    const avgDimScore = dimensions.reduce((acc, d) => acc + d.score, 0) / (dimensions.length || 1);
-    const capabilityGrowthScore = Math.round(avgDimScore * 0.4 + retrievalAccuracy * 0.3 + applicationTransferRate * 0.3);
+    // Only compute if we have evidence (diagnostic completed/dimensions scored OR practice telemetry exists)
+    const hasEvidence = dimensions.some(d => (d.evidenceCount || 0) > 0 || d.score > 0) || totalRetrievals > 0 || totalApplications > 0;
+    let capabilityGrowthScore: number | null = null;
+    if (hasEvidence) {
+      const scoredDims = dimensions.filter(d => d.score > 0);
+      const avgDimScore = scoredDims.length > 0
+        ? scoredDims.reduce((acc, d) => acc + d.score, 0) / scoredDims.length
+        : null;
 
-    // Strengths & Bottlenecks derived from dimensions
-    const sortedDims = [...dimensions].sort((a, b) => b.score - a.score);
-    const strengths = sortedDims.slice(0, 2).map(d => `${d.name} (${d.score}/100)`);
-    const bottlenecks = sortedDims.slice(-2).map(d => `${d.name} (${d.score}/100)`);
+      const components: { weight: number; value: number }[] = [];
+      if (avgDimScore !== null) components.push({ weight: 0.4, value: avgDimScore });
+      if (retrievalAccuracy !== null) components.push({ weight: 0.3, value: retrievalAccuracy });
+      if (applicationTransferRate !== null) components.push({ weight: 0.3, value: applicationTransferRate });
+
+      if (components.length > 0) {
+        const totalWeight = components.reduce((sum, c) => sum + c.weight, 0);
+        const weightedSum = components.reduce((sum, c) => sum + c.value * c.weight, 0);
+        capabilityGrowthScore = Math.round(weightedSum / totalWeight);
+      }
+    }
+
+    // Strengths & Bottlenecks derived from dimensions with genuine evidence
+    const scoredDims = dimensions.filter(d => ((d.evidenceCount || 0) > 0 || d.score > 0) && (diagnosticCompleted || isDemoAccount));
+    const sortedDims = [...scoredDims].sort((a, b) => b.score - a.score);
+    
+    // Established strengths: require score >= 70 AND verified evidence (diagnostic baseline or evidenceCount >= 3)
+    const establishedStrengths = sortedDims
+      .filter(d => d.score >= 70 && ((d.evidenceCount || 0) >= 3 || diagnosticCompleted))
+      .map(d => `${d.name} (${d.score}/100)`);
+    const strengths = establishedStrengths.slice(0, 2);
+
+    // Bottlenecks: require score < 60 with observed evidence, sorted lowest score first
+    const weakDims = [...sortedDims].reverse().filter(d => d.score < 60);
+    const bottlenecks = weakDims.slice(0, 2).map(d => `${d.name} (${d.score}/100)`);
 
     return {
       capabilityGrowthScore,
@@ -408,12 +439,13 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       applicationTransferRate,
       confidenceCalibrationRate,
       retentionDurability,
+      overconfidenceIncidents,
       totalConcepts,
       masteredConcepts: stableConcepts,
       strengths,
       bottlenecks,
     };
-  }, [dimensions, retrievalAttempts, applicationAttempts, concepts]);
+  }, [dimensions, retrievalAttempts, applicationAttempts, concepts, diagnosticCompleted, isDemoAccount]);
 
   // Next Best Action is the highest-priority active recommendation
   const nextBestAction = useMemo(() => {
@@ -423,7 +455,6 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Deterministic Personalised Bottleneck Evaluation
   const bottleneckRecommendation = useMemo<PersonalisedBottleneckRecommendation | null>(() => {
-    if (!diagnosticCompleted && !diagnosticReport && !isDemoAccount) return null;
     const currentGoal = goals.find(g => g.id === selectedGoalId) || goals[0] || null;
     return evaluatePersonalisedBottleneck({
       dimensions,
@@ -432,7 +463,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       retrievalAttempts,
       applicationAttempts,
     });
-  }, [diagnosticCompleted, diagnosticReport, isDemoAccount, goals, selectedGoalId, dimensions, retrievalAttempts, applicationAttempts]);
+  }, [diagnosticReport, goals, selectedGoalId, dimensions, retrievalAttempts, applicationAttempts]);
 
   // Adaptive Engine Rule Evaluator (Runs after user attempts or changes)
   const evaluateAdaptiveRules = useCallback((
@@ -442,64 +473,78 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   ) => {
     const newRecommendations: Recommendation[] = [];
 
-    // Rule 1: Weak Retrieval (<60%) or passive review
-    const totalRet = currentRetrievals.length;
-    const correctRet = currentRetrievals.filter(r => r.isCorrect).length;
-    const retRate = totalRet > 0 ? (correctRet / totalRet) * 100 : 70;
+    // Rule 1: Weak Retrieval (<60%) - requires at least 3 recent attempts to establish signal
+    const recentRetrievals = getRecentAttempts(currentRetrievals, 10);
+    const totalRet = recentRetrievals.length;
+    if (totalRet >= 3) {
+      const correctRet = recentRetrievals.filter(r => r.isCorrect).length;
+      const retRate = (correctRet / totalRet) * 100;
 
-    if (retRate < 60) {
-      newRecommendations.push({
-        id: `rec_adapt_ret_${Date.now()}`,
-        type: 'retrieval',
-        title: 'Active Retrieval Recovery Drill',
-        reason: `Your retrieval accuracy is currently at ${Math.round(retRate)}%. Shift immediate study effort to closed-book recall drills.`,
-        sourceSignal: `Adaptive Rule 1: Retrieval accuracy threshold breached (${Math.round(retRate)}% < 60%).`,
-        actionPrompt: 'Practice closed-book retrieval for your most fragile concept.',
-        actionRoute: '/app/retrieve',
-        priority: 'Critical',
-        createdAt: new Date().toISOString(),
-      });
+      if (retRate < 60) {
+        newRecommendations.push({
+          id: 'rec_adapt_ret',
+          type: 'retrieval',
+          title: 'Active Retrieval Recovery Drill',
+          reason: `Your retrieval accuracy is currently at ${Math.round(retRate)}% across your ${totalRet} most recent attempts. Shift immediate study effort to closed-book recall drills.`,
+          sourceSignal: `Adaptive Rule 1: Retrieval accuracy threshold breached (${Math.round(retRate)}% < 60% across ${totalRet} recent attempts).`,
+          actionPrompt: 'Practice closed-book retrieval for your most fragile concept.',
+          actionRoute: '/app/retrieve',
+          priority: 'Critical',
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     // Rule 2: High Recall (>70%) but Low Application (<55%) -> Contextual Transfer Gap!
-    const totalApp = currentApps.length;
-    const profApp = currentApps.filter(a => a.isProficient).length;
-    const appRate = totalApp > 0 ? (profApp / totalApp) * 100 : 50;
+    // Requires at least 3 retrieval attempts and 2 application attempts
+    const recentApps = getRecentAttempts(currentApps, 10);
+    const totalApp = recentApps.length;
+    if (totalRet >= 3 && totalApp >= 2) {
+      const correctRet = recentRetrievals.filter(r => r.isCorrect).length;
+      const retRate = (correctRet / totalRet) * 100;
+      const profApp = recentApps.filter(a => a.isProficient).length;
+      const appRate = (profApp / totalApp) * 100;
 
-    if (retRate >= 70 && appRate < 55) {
-      newRecommendations.push({
-        id: `rec_adapt_app_${Date.now()}`,
-        type: 'application',
-        title: 'Contextual Application Challenge Due',
-        reason: 'Your definition recall is solid, but authentic application transfer is lagging. Practicing novel problems will prevent exam surprises.',
-        sourceSignal: `Adaptive Rule 2: Recall (${Math.round(retRate)}%) exceeds Transfer (${Math.round(appRate)}%) by over 15%.`,
-        actionPrompt: 'Attempt a scenario challenge in a new context today.',
-        actionRoute: '/app/apply',
-        priority: 'High',
-        createdAt: new Date().toISOString(),
-      });
+      if (retRate >= 70 && appRate < 55) {
+        newRecommendations.push({
+          id: 'rec_adapt_app',
+          type: 'application',
+          title: 'Contextual Application Challenge Due',
+          reason: `Your definition recall is solid (${Math.round(retRate)}%), but authentic application transfer is lagging (${Math.round(appRate)}% across ${totalApp} recent challenges). Practicing novel problems will close the transfer gap and build durable problem-solving schemas.`,
+          sourceSignal: `Adaptive Rule 2: Recall (${Math.round(retRate)}%) exceeds Transfer (${Math.round(appRate)}%) by over 15% with verified telemetry.`,
+          actionPrompt: 'Attempt a scenario challenge in a new context today.',
+          actionRoute: '/app/apply',
+          priority: 'High',
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     // Rule 5: Overconfidence gap (confidence >= 4 and incorrect)
-    const recentOverconfident = currentRetrievals.slice(-3).filter(r => r.calibrationStatus === 'overconfident');
-    if (recentOverconfident.length >= 2) {
-      newRecommendations.push({
-        id: `rec_adapt_calib_${Date.now()}`,
-        type: 'reflection',
-        title: 'Confidence Calibration Checkpoint',
-        reason: 'Overconfidence bias detected on recent practice questions. Passive fluency is masking procedural gaps.',
-        sourceSignal: 'Adaptive Rule 5: 2 of your last 3 attempts showed high confidence despite incorrect recall.',
-        actionPrompt: 'Review the Error Taxonomy prompt in the prompt library before your next session.',
-        actionRoute: '/app/prompt-library',
-        priority: 'High',
-        createdAt: new Date().toISOString(),
-      });
+    // Inspect the three most recent retrieval attempts using getRecentAttempts
+    const recentThree = getRecentAttempts(currentRetrievals, 3);
+    const recentConfidenceRated = recentThree.filter(r => r.confidenceRating !== undefined && r.confidenceRating !== null);
+    if (recentConfidenceRated.length === 3) {
+      const recentOverconfidentCount = recentConfidenceRated.filter(r => r.calibrationStatus === 'overconfident').length;
+      if (recentOverconfidentCount >= 2) {
+        newRecommendations.push({
+          id: 'rec_adapt_calib',
+          type: 'reflection',
+          title: 'Confidence Calibration Checkpoint',
+          reason: 'Overconfidence bias detected on recent practice questions. Passive fluency is masking procedural gaps.',
+          sourceSignal: 'Adaptive Rule 5: 2 of your 3 most recent attempts showed high confidence despite incorrect recall.',
+          actionPrompt: 'Review the Error Taxonomy prompt in the prompt library before your next session.',
+          actionRoute: '/app/prompt-library',
+          priority: 'High',
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     // Update recommendations, keeping existing ones that are still relevant
     if (newRecommendations.length > 0) {
       setRecommendations(prev => {
-        const combined = [...newRecommendations, ...prev.filter(p => !newRecommendations.some(n => n.type === p.type))];
+        const combined = [...newRecommendations, ...prev.filter(p => !newRecommendations.some(n => n.id === p.id || n.type === p.type))];
         return combined.slice(0, 5); // Keep top 5
       });
 
@@ -642,13 +687,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [user, isDemoAccount, refreshLearnerState]);
 
-  // Auth & Account handlers
-  const login = (email: string, name: string) => {
-    setIsAuthenticated(true);
-    setIsDemoAccount(false);
-    setProfile(prev => ({ ...prev, email, name }));
-  };
-
+  // Auth & Account handlers - AuthContext is the single authoritative source of truth for auth
   const logout = () => {
     if (user) {
       void authSignOut();
@@ -1227,21 +1266,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     setReflections(prev => [newReflection, ...prev]);
 
-    // Boost self-regulation score slightly for consistent reflection
-    const updatedDimensions = dimensions.map(d => {
-      if (d.key === 'self_regulation') {
-        const newScore = Math.min(100, d.score + 1);
-        return { ...d, score: newScore, evidenceCount: d.evidenceCount + 1 };
-      }
-      return d;
-    });
-    setDimensions(updatedDimensions);
-
-    if (user && !isDemoAccount) {
-      upsertDimensions(user.id, updatedDimensions).catch(err => {
-        console.warn('[LearnerContext] Failed to upsert dimensions on reflection:', err);
-      });
-    }
+    // Reflection is recorded as a qualitative metacognitive event.
+    // In accordance with Stage 5.1 Evidence Integrity, reflections do NOT arbitrarily inflate PLSFR scores or evidence counts.
   };
 
   const updateInterventionStatus = (id: string, status: 'Active' | 'Completed' | 'Dismissed') => {
@@ -1297,7 +1323,6 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         nextBestAction,
         activeAssessmentId,
         bottleneckRecommendation,
-        login,
         logout,
         loadDemoAccount,
         resetToFreshAccount,

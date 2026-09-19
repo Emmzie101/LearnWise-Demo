@@ -95,7 +95,7 @@ export function calculateDiagnosticScores(
       score: newScore,
       confidence: numericConfidence,
       confidenceBand,
-      evidenceCount: (d.evidenceCount || 6) + (recorded ? Math.round(recorded.count) : 1),
+      evidenceCount: (d.evidenceCount ?? 0) + (recorded && recorded.count > 0 ? Math.round(recorded.count) : 0),
       strengthLevel: strength,
       riskLevel: risk,
       evidenceBreakdown: recorded ? {

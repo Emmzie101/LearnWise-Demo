@@ -66,6 +66,9 @@ export interface LeverageableStrengthItem {
 export interface RecommendedInterventionDetail {
   type: string;
   title: string;
+  targetBottleneck?: string;
+  category?: BottleneckCategory;
+  evidenceOrigin?: string;
   description: string;
   action: string;
   rationale: string;
@@ -74,6 +77,8 @@ export interface RecommendedInterventionDetail {
   expectedOutcome: string;
   successMetric: string;
   evaluationWindow: string;
+  baselineMetric?: string;
+  targetMetric?: string;
 }
 
 export interface AdaptationRuleDetail {
@@ -85,10 +90,10 @@ export interface AdaptationRuleDetail {
 export interface PersonalisedBottleneckRecommendation {
   evidenceStatus: EvidenceStatus;
   evidenceSummary: BottleneckEvidenceSummary;
-  primaryBottleneck: BottleneckItem;
-  secondaryBottleneck?: BottleneckItem;
-  leverageableStrength?: LeverageableStrengthItem;
-  relativeStrength?: LeverageableStrengthItem;
+  primaryBottleneck: BottleneckItem | null;
+  secondaryBottleneck?: BottleneckItem | null;
+  leverageableStrength?: LeverageableStrengthItem | null;
+  relativeStrength?: LeverageableStrengthItem | null;
   goalConnection: string;
   recommendedIntervention: RecommendedInterventionDetail;
   adaptationRule: AdaptationRuleDetail;
@@ -248,19 +253,51 @@ export function generateGoalSpecificConnection(
 
   switch (goalType) {
     case 'exam':
-      return `For your exam goal "${goal.title}", resolving ${bottleneckTitle} directly prevents retrieval failures, formula lapses, and time-pressure blackouts under timed examination conditions.`;
-    case 'academic':
-      return `For your academic course goal "${goal.title}", resolving ${bottleneckTitle} ensures you build durable mental schemas that resist forgetting across semester lectures and course readings.`;
-    case 'university':
-      return `For your university syllabus goal "${goal.title}", resolving ${bottleneckTitle} helps you manage high-volume lecture density and continuous assessments without relying on last-minute cramming.`;
+      if (category === 'retrieval') {
+        return `Under timed exam conditions for "${goal.title}", weak retrieval causes the fluency illusion to collapse into formula lapses and memory blanks. Resolving ${bottleneckTitle} ensures fast, reliable recall of key definitions and theorems without reliance on open notes.`;
+      }
+      if (category === 'application') {
+        return `For your exam goal "${goal.title}", past questions alter surface framing to test true understanding. Weak application means you can recall formulas but freeze when questions combine multi-step constraints or deviate from textbook phrasing.`;
+      }
+      if (category === 'self_regulation') {
+        return `In high-stakes exams like "${goal.title}", miscalibrated confidence causes you to rush through flawed solutions believing they are correct, abandoning time that should be spent verifying edge cases.`;
+      }
+      return `For your exam goal "${goal.title}", resolving ${bottleneckTitle} directly prevents retrieval failures, formula lapses, and panic under strict examination time limits.`;
+
     case 'technical':
+      if (category === 'application') {
+        return `For technical mastery in "${goal.title}", memorizing definitions is insufficient; you must diagnose problem invariants, handle boundary conditions, and debug edge cases autonomously without copy-pasting tutorial solutions.`;
+      }
+      if (category === 'retrieval') {
+        return `In technical programming and problem-solving for "${goal.title}", missing foundational recall forces constant syntax lookups, causing cognitive thrashing and breaking working-memory focus during algorithm implementation.`;
+      }
+      if (category === 'knowledge') {
+        return `For your technical goal "${goal.title}", fragmented knowledge schemas prevent you from recognizing reusable architectural patterns, resulting in fragile and brittle implementations.`;
+      }
       return `For your technical goal "${goal.title}", resolving ${bottleneckTitle} is critical for autonomous implementation, debugging, and transfer without falling back to tutorial-dependence.`;
+
+    case 'academic':
+    case 'university':
+      if (category === 'knowledge') {
+        return `In academic coursework for "${goal.title}", fragmented knowledge causes compounding gaps: subsequent advanced lectures assume integrated schemas, leading to cumulative confusion as the syllabus advances.`;
+      }
+      if (category === 'retrieval') {
+        return `For your academic course goal "${goal.title}", resolving ${bottleneckTitle} ensures you build durable mental schemas that resist rapid forgetting between weekly lectures and midterm assessments.`;
+      }
+      return `For your university syllabus goal "${goal.title}", resolving ${bottleneckTitle} helps you manage high-volume lecture density and continuous assessments without relying on last-minute cramming.`;
+
     case 'professional':
+      if (category === 'self_regulation') {
+        return `For your professional goal "${goal.title}", without structured metacognitive calibration, superficial skimming and fluency illusions create unverified confidence that breaks down under real-world workplace demands.`;
+      }
       return `For your professional goal "${goal.title}", resolving ${bottleneckTitle} enables rapid on-the-job decision-making and operational execution under real-world workplace constraints.`;
+
     case 'creative':
       return `For your creative goal "${goal.title}", resolving ${bottleneckTitle} supports deliberate iteration, generative experimentation, and structural translation of concepts into authentic output.`;
+
     case 'personal':
       return `For your personal goal "${goal.title}", resolving ${bottleneckTitle} establishes habit consistency, metacognitive self-regulation, and regular deliberate practice.`;
+
     default:
       return `For "${goal.title}" in ${goal.domain}, resolving ${bottleneckTitle} directly accelerates concept mastery and operational execution.`;
   }
@@ -296,21 +333,16 @@ export function evaluatePersonalisedBottleneck(params: {
   // 2. If evidence is INSUFFICIENT, return explicit unestablished baseline result
   if (evidenceSummary.overallStatus === 'insufficient') {
     const goalConn = goal 
-      ? `For your goal "${goal.title}", establishing an accurate baseline is required before recommending targeted practice protocols.`
-      : 'A learning baseline is required to identify cognitive bottlenecks accurately.';
+      ? `For your goal "${goal.title}", complete the diagnostic and enough practice attempts to establish a reliable learning pattern.`
+      : 'Complete the diagnostic and enough practice attempts to establish a reliable learning pattern.';
 
     return {
       evidenceStatus: 'insufficient',
       evidenceSummary,
-      primaryBottleneck: {
-        dimensionKey: 'knowledge_acquisition',
-        title: 'Unestablished Baseline',
-        score: 0,
-        priority: 1,
-        category: 'retrieval',
-        rationale: 'Insufficient observed evidence to identify a reliable cognitive bottleneck. Baseline diagnostic assessment or initial deliberate practice attempts required.',
-        evidence: evidenceSummary.details,
-      },
+      primaryBottleneck: null,
+      secondaryBottleneck: null,
+      leverageableStrength: null,
+      relativeStrength: null,
       goalConnection: goalConn,
       recommendedIntervention: {
         type: 'prerequisite',
@@ -335,9 +367,8 @@ export function evaluatePersonalisedBottleneck(params: {
         route: '/app/diagnostic',
       },
       explainabilityWhy: [
-        'Insufficient evidence: No validated diagnostic report or deliberate practice telemetry found.',
+        'There is not yet enough learner evidence to identify a stable bottleneck.',
         ...evidenceSummary.details,
-        'Complete the PLSFR+ diagnostic to establish your learning-system baseline.',
       ],
     };
   }
@@ -346,13 +377,15 @@ export function evaluatePersonalisedBottleneck(params: {
   const validDims = dimensions.filter(d => d.score > 0);
   const dimsToEvaluate = validDims.length > 0 ? validDims : dimensions;
 
-  // 3. Calculate observed telemetry signals (with minimum evidence safeguards)
-  const totalRetrievals = retrievalAttempts.length;
-  const correctRetrievals = retrievalAttempts.filter(r => r.isCorrect).length;
+  // 3. Calculate observed telemetry signals (using recent window to prevent stale data bias)
+  const recentRetrievalsForAccuracy = getRecentAttempts(retrievalAttempts, 10);
+  const totalRetrievals = recentRetrievalsForAccuracy.length;
+  const correctRetrievals = recentRetrievalsForAccuracy.filter(r => r.isCorrect).length;
   const retrievalAccuracy = totalRetrievals >= 3 ? (correctRetrievals / totalRetrievals) * 100 : null;
 
-  const totalApps = applicationAttempts.length;
-  const proficientApps = applicationAttempts.filter(a => a.isProficient).length;
+  const recentAppsForProficiency = getRecentAttempts(applicationAttempts, 10);
+  const totalApps = recentAppsForProficiency.length;
+  const proficientApps = recentAppsForProficiency.filter(a => a.isProficient).length;
   const applicationProficiency = totalApps >= 2 ? (proficientApps / totalApps) * 100 : null;
 
   // Recent overconfidence check using actual most recent attempts
@@ -447,18 +480,18 @@ export function evaluatePersonalisedBottleneck(params: {
   const sortedByRawScore = [...dimsToEvaluate].sort((a, b) => b.score - a.score);
   const highestDim = sortedByRawScore[0];
 
-  let leverageableStrength: LeverageableStrengthItem | undefined = undefined;
-  let relativeStrength: LeverageableStrengthItem | undefined = undefined;
+  let leverageableStrength: LeverageableStrengthItem | null = null;
+  let relativeStrength: LeverageableStrengthItem | null = null;
 
   if (highestDim) {
-    const isEstablished = highestDim.score >= 70 && (highestDim.evidenceCount >= 3 || diagnosticReport !== null);
+    const isEstablished = highestDim.score >= 70 && ((highestDim.evidenceCount || 0) >= 3 || diagnosticReport !== null);
     const strengthItem: LeverageableStrengthItem = {
       dimensionKey: highestDim.key,
       title: highestDim.name,
       score: highestDim.score,
       rationale: isEstablished
         ? `Your strong baseline in ${highestDim.name} (${highestDim.score}/100) provides the cognitive stability to anchor new deliberate practice protocols.`
-        : `Highest relative score (${highestDim.score}/100 in ${highestDim.name}), but requires additional evidence before being designated an established strength.`,
+        : `Highest observed relative score (${highestDim.score}/100 in ${highestDim.name}), but currently below the threshold (>= 70/100 with verified evidence) for an established strength.`,
       isEstablished,
     };
 
@@ -486,12 +519,17 @@ export function evaluatePersonalisedBottleneck(params: {
       interventionDetail = {
         type: 'application',
         title: 'Interleaved Scenario Application Challenge (PLS-IP 2)',
+        targetBottleneck: primaryCandidate.dimension.name,
+        category: primaryCategory,
+        evidenceOrigin: primaryCandidate.evidenceList[0] || 'Application Telemetry Observation',
         description: 'Solve varied problem scenarios where the governing principle must be diagnosed rather than given in advance.',
         action: 'Attempt an authentic scenario challenge and articulate which concept invariant solves the constraint.',
         rationale: 'Interleaved transfer challenges train your brain to discriminate structural schemas in novel contexts (Rohrer & Taylor, 2007).',
         frequency: '2 to 3 novel scenario challenges per week.',
         duration: '20-25 minutes per challenge',
         expectedOutcome: 'Proficient solution of unfamiliar past exam and real-world questions without hints.',
+        baselineMetric: applicationProficiency !== null ? `${Math.round(applicationProficiency)}% proficiency` : `${primaryCandidate.dimension.score}/100 baseline`,
+        targetMetric: '>=70% proficiency across the evaluation window',
         successMetric: '>=70% proficiency across the evaluation window.',
         evaluationWindow: 'Next 4 application challenges',
       };
@@ -511,12 +549,17 @@ export function evaluatePersonalisedBottleneck(params: {
       interventionDetail = {
         type: 'reflection',
         title: 'Confidence Pre-Rating & Error Taxonomy (PLS-IP 4)',
+        targetBottleneck: primaryCandidate.dimension.name,
+        category: primaryCategory,
+        evidenceOrigin: primaryCandidate.evidenceList[0] || 'Metacognitive Calibration Analysis',
         description: 'Rate your 1-5 confidence before checking any answer. Categorize every mistake into Concept Gap, Misreading, or Slip.',
         action: 'Commit a confidence rating before viewing solutions; classify every error honestly.',
         rationale: 'Forcing confidence predictions recalibrates metacognitive accuracy and eliminates the fluency illusion (Bjork et al., 2013).',
         frequency: 'Before every practice quiz and problem set.',
         duration: '2-3 minutes per attempt',
         expectedOutcome: 'Alignment between predicted confidence and observed correctness; elimination of overconfidence bias.',
+        baselineMetric: 'Overconfidence bias observed on recent attempts',
+        targetMetric: 'Fewer than 1 overconfident error in the next 5 confidence-rated attempts',
         successMetric: 'Fewer than 1 overconfident error in the next 5 confidence-rated attempts.',
         evaluationWindow: 'Next 5 confidence-rated attempts',
       };
@@ -535,12 +578,17 @@ export function evaluatePersonalisedBottleneck(params: {
       interventionDetail = {
         type: 'prerequisite',
         title: 'Prerequisite Decomposition & Concept Chunking (PLS-IP 3)',
+        targetBottleneck: primaryCandidate.dimension.name,
+        category: primaryCategory,
+        evidenceOrigin: primaryCandidate.evidenceList[0] || 'Knowledge Organization Assessment',
         description: 'Deconstruct complex multi-step topics into invariant foundational rules before tackling compound problems.',
         action: 'Identify and verify all prerequisite schemas before tackling compound problem sets.',
         rationale: 'Reduces extraneous cognitive load and frees working memory bandwidth for higher-order reasoning (Sweller, 1988).',
         frequency: 'At the start of every new module or complex chapter.',
         duration: '20 minutes per module',
         expectedOutcome: 'Seamless transition from prerequisite understanding to multi-step problem solving.',
+        baselineMetric: `${primaryCandidate.dimension.score}/100 schema organization score`,
+        targetMetric: '100% prerequisite schema validation across next 3 modules',
         successMetric: 'Verification of all prerequisite invariants on first attempt without consulting external notes.',
         evaluationWindow: 'Next 3 concept ingests',
       };
@@ -559,12 +607,17 @@ export function evaluatePersonalisedBottleneck(params: {
       interventionDetail = {
         type: 'workload_reduction',
         title: 'Distraction-Shielded Implementation Intentions (PLS-IP 6)',
+        targetBottleneck: primaryCandidate.dimension.name,
+        category: primaryCategory,
+        evidenceOrigin: primaryCandidate.evidenceList[0] || 'Environment & Behavior Signal',
         description: 'Set explicit "When [Trigger], Then [Action]" routines. Pre-download materials and study offline.',
         action: 'Set specific environmental study cues and eliminate phone notifications during 50-minute study blocks.',
         rationale: 'Environmental constraints automate study triggers without depleting daily willpower reserves (Gollwitzer, 1999).',
         frequency: 'Daily at your designated study time.',
         duration: '5 minutes setup per block',
         expectedOutcome: '>=85% planned study session completion rate without distraction breaks.',
+        baselineMetric: '<70% scheduled session completion',
+        targetMetric: '>=85% planned study session completion rate across 14 consecutive days',
         successMetric: '>=85% planned study session completion rate across 14 consecutive days.',
         evaluationWindow: 'Next 7 calendar days',
       };
@@ -584,12 +637,17 @@ export function evaluatePersonalisedBottleneck(params: {
       interventionDetail = {
         type: 'retrieval',
         title: 'Closed-Book Free Recall Protocol (PLS-IP 1)',
+        targetBottleneck: primaryCandidate.dimension.name,
+        category: primaryCategory,
+        evidenceOrigin: primaryCandidate.evidenceList[0] || 'Retrieval Practice Observation',
         description: 'Shift from passive highlighting and re-reading to immediate closed-book reconstructive recall.',
         action: 'Close notes immediately after reading a section; write out key mechanisms from memory before checking.',
         rationale: 'Active retrieval strengthens synaptic pathways and eliminates the recognition illusion (Roediger & Karpicke, 2006).',
         frequency: 'First 10 minutes of every study block before opening notes.',
         duration: '10-15 minutes per session',
         expectedOutcome: '>75% accuracy on delayed closed-book retention tests.',
+        baselineMetric: retrievalAccuracy !== null ? `${Math.round(retrievalAccuracy)}% accuracy` : `${primaryCandidate.dimension.score}/100 baseline`,
+        targetMetric: '>=70% accuracy on closed-book retrieval checks across 6 attempts',
         successMetric: '>=70% accuracy on closed-book retrieval checks across the evaluation window.',
         evaluationWindow: 'Next 6 retrieval attempts',
       };
@@ -668,17 +726,33 @@ export function generateDeterministicStrategyPlan(params: {
   const strategyTitle = `Adaptive Mastery Protocol for ${goal.title}`;
   const rationale = `Tailored for ${goal.domain} (${goal.goalType || 'academic'} track). Specifically targets primary bottleneck in ${primaryBottleneck.title} (${primaryBottleneck.score}/100) while anchoring to your strength in ${strengthTitle} (${strengthScore}/100). Focuses on evidence-based deliberate practice rather than passive re-reading.`;
 
-  // Bottleneck-specific weekly hours breakdown and phased emphasis (Part 9)
+  // Bottleneck-specific weekly hours breakdown and phased emphasis (Part 9 & 14)
   let weeklyHoursBreakdown = '';
   let whatToStop = '';
   let whatToPractise = '';
+  let successIndicator = '';
+  let stuckAction = '';
   let phases: LearningPathPhase[] = [];
+
+  const isTechnical = goal.goalType === 'technical' || /code|programming|cs|software|algorithm/i.test(goal.title);
+  const isProfessional = goal.goalType === 'professional';
+  const isCreative = goal.goalType === 'creative';
 
   switch (category) {
     case 'retrieval':
       weeklyHoursBreakdown = '6 hours/week allocated: 45% Closed-Book Retrieval, 25% Contextual Application, 20% Prerequisite Encoding, 10% Metacognitive Reflection.';
-      whatToStop = 'Stop passive re-reading and linear textbook highlighting. Re-reading creates a fluency illusion that collapses under exam pressure.';
-      whatToPractise = 'Practise closed-book blank-page reconstruction within 24 hours of exposure, followed by spaced flash recall.';
+      whatToStop = isTechnical
+        ? 'Stop looking up syntax and code solutions before attempting to write algorithms from memory.'
+        : isProfessional
+        ? 'Stop skimming procedural reference manuals without active rehearsal of operational workflows.'
+        : isCreative
+        ? 'Stop passive reference collection without closed-book reconstruction of core structural motifs.'
+        : 'Stop passive re-reading and linear textbook highlighting. Re-reading creates a fluency illusion that collapses under exam pressure.';
+      whatToPractise = isTechnical
+        ? 'Practise blank-editor algorithmic implementation of invariant primitives within 24 hours of exposure.'
+        : 'Practise closed-book blank-page reconstruction within 24 hours of exposure, followed by spaced flash recall.';
+      successIndicator = `Achieving >=75% closed-book recall on unprompted concept sprints across 3 consecutive sessions, eliminating recognition reliance for ${goal.title}.`;
+      stuckAction = 'Trigger the Active Recall Recovery drill or use the Socratic Feynman prompt in the AI Suite to isolate the missing invariant before consulting notes.';
       phases = [
         {
           id: 'p1',
@@ -731,6 +805,8 @@ export function generateDeterministicStrategyPlan(params: {
       weeklyHoursBreakdown = '6 hours/week allocated: 45% Interleaved Application Challenges, 25% Closed-Book Retrieval, 20% Prerequisite Encoding, 10% Metacognitive Reflection.';
       whatToStop = 'Stop solving 10 identical formula problems in a row. Blocked practice gives false confidence without teaching problem-type discrimination.';
       whatToPractise = 'Practise interleaved scenario challenges where different problem types are mixed together without advance formula labels.';
+      successIndicator = `Achieving >=70% proficiency on novel scenario challenges for ${goal.title} without formula hints, with accurate constraint diagnosis on first attempt.`;
+      stuckAction = 'Use the Counterexample / Constraint Variation prompt in the AI Suite to isolate why the invariant does not map to the scenario.';
       phases = [
         {
           id: 'p1',
@@ -783,6 +859,8 @@ export function generateDeterministicStrategyPlan(params: {
       weeklyHoursBreakdown = '6 hours/week allocated: 30% Closed-Book Retrieval, 25% Contextual Application, 25% Metacognitive Calibration & Reflection, 20% Prerequisite Planning.';
       whatToStop = 'Stop checking answers immediately without first predicting your confidence rating and committing to your written answer.';
       whatToPractise = 'Practise 1-5 confidence pre-ratings on every attempt and classify every error into Concept Gap, Misreading, or Slip.';
+      successIndicator = `Zero overconfidence incidents across 5 consecutive practice sessions with >=80% metacognitive calibration alignment between predicted confidence and actual accuracy.`;
+      stuckAction = 'Execute the Error Taxonomy rubric to classify the exact failure mode (Concept Gap, Misreading, or Slip) before re-attempting.';
       phases = [
         {
           id: 'p1',
@@ -835,6 +913,8 @@ export function generateDeterministicStrategyPlan(params: {
       weeklyHoursBreakdown = '6 hours/week allocated: 40% Prerequisite Decomposition & Chunking, 30% Closed-Book Retrieval, 20% Application, 10% Reflection.';
       whatToStop = 'Stop diving into advanced multi-step problems when prerequisite formulas or terms are hazy.';
       whatToPractise = 'Practise prerequisite schema mapping and chunking complex theorems into 3 non-negotiable rules.';
+      successIndicator = `Complete prerequisite schema reconstruction from memory with 100% boundary rule accuracy before advancing to composite problem sets for ${goal.title}.`;
+      stuckAction = 'Deconstruct the concept into its two most primitive sub-components using the Concept Decomposition prompt in the AI Suite.';
       phases = [
         {
           id: 'p1',
@@ -887,6 +967,8 @@ export function generateDeterministicStrategyPlan(params: {
       weeklyHoursBreakdown = '6 hours/week allocated: 35% Environmentally-Shielded Study Blocks, 30% Retrieval, 25% Application, 10% Routine Audit.';
       whatToStop = 'Stop studying with active mobile notifications, social feeds open, or in noisy, unstructured locations.';
       whatToPractise = 'Practise 50-minute distraction-shielded focus blocks with all study materials pre-downloaded offline.';
+      successIndicator = `Completing 5 scheduled 50-minute shielded deliberate practice blocks per week with zero recorded interruption events for ${goal.title}.`;
+      stuckAction = 'Activate the Contingency Focus Checklist: switch device to airplane mode and proceed with offline retrieval flashcards.';
       phases = [
         {
           id: 'p1',
@@ -939,6 +1021,8 @@ export function generateDeterministicStrategyPlan(params: {
       weeklyHoursBreakdown = '6 hours/week allocated: 35% Closed-Book Retrieval, 35% Interleaved Application, 20% Prerequisite Encoding, 10% Metacognitive Reflection.';
       whatToStop = 'Stop passive re-reading and linear textbook highlighting.';
       whatToPractise = 'Practise closed-book retrieval within 24 hours of exposure, followed by 3 interleaved application problems.';
+      successIndicator = `Achieving >=70% closed-book recall accuracy and >=70% proficiency on novel application challenges without consulting reference notes.`;
+      stuckAction = 'Deploy the AI Learning Coach to receive progressive Socratic hints without spoonfeeding answers.';
       phases = [
         {
           id: 'p1',
@@ -988,8 +1072,6 @@ export function generateDeterministicStrategyPlan(params: {
       break;
   }
 
-  const successIndicator = `Achieving >=70% closed-book recall accuracy and >=70% proficiency on novel application challenges without consulting reference notes.`;
-
   return {
     goalId: goal.id,
     title: strategyTitle,
@@ -997,6 +1079,6 @@ export function generateDeterministicStrategyPlan(params: {
     phases,
     weeklyHoursBreakdown,
     successIndicator,
-    stuckAction: 'Deploy the AI Learning Coach to receive progressive Socratic hints without spoonfeeding answers.',
+    stuckAction,
   };
 }

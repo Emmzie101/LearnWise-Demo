@@ -286,6 +286,15 @@ export interface LearningReflection {
 
 export type EvidenceStatus = 'insufficient' | 'emerging' | 'sufficient';
 
+export type InterventionEvaluationStatus = 
+  | 'recommended' 
+  | 'active' 
+  | 'evaluating' 
+  | 'effective' 
+  | 'ineffective' 
+  | 'adapted' 
+  | 'completed';
+
 export interface InterventionSuccessMeasurement {
   baselineMetric: string;
   targetMetric: string;
@@ -314,6 +323,9 @@ export interface Intervention {
   evidenceOrigin: string;
   metricBefore?: string;
   metricAfter?: string;
+  successMetric?: string;
+  evaluationWindow?: string;
+  evaluationLifecycle?: InterventionEvaluationStatus;
   successMeasurement?: InterventionSuccessMeasurement;
   adaptationRule?: InterventionAdaptationRule;
 }
@@ -324,6 +336,7 @@ export interface AssimilationMetrics {
   applicationTransferRate: number | null; // 0-100 or null if no attempts
   confidenceCalibrationRate: number | null; // % well-calibrated or null
   retentionDurability: number | null; // 0-100 or null if no concepts
+  overconfidenceIncidents: number; // Count of observed overconfident attempts
   totalConcepts: number;
   masteredConcepts: number;
   strengths: string[];

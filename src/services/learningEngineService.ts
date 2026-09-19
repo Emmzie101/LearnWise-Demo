@@ -177,12 +177,21 @@ export async function saveStrategyPlan(
     throw new Error('[learningEngineService] Supabase is not configured or user ID is missing.');
   }
 
+  // If phases are omitted or empty in update payload, preserve existing phases from DB
+  let phasesToPersist = plan.phases || [];
+  if (phasesToPersist.length === 0 && plan.goalId) {
+    const existingPlan = await getStrategyPlanByGoalId(userId, plan.goalId);
+    if (existingPlan && existingPlan.phases && existingPlan.phases.length > 0) {
+      phasesToPersist = existingPlan.phases;
+    }
+  }
+
   const payload = {
     user_id: userId,
     goal_id: plan.goalId,
     title: plan.title,
     rationale: plan.rationale,
-    phases: plan.phases || [],
+    phases: phasesToPersist,
     weekly_hours_breakdown: plan.weeklyHoursBreakdown || '',
     success_indicator: plan.successIndicator || '',
     stuck_action: plan.stuckAction || '',

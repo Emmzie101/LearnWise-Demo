@@ -75,6 +75,19 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({ onNavigate
                   <span className="text-xs font-semibold text-[#8A96A8]">
                     Remediates: {plan.targetBottleneck || plan.targetDimension || 'Cognitive Bottleneck'}
                   </span>
+                  {plan.evaluationLifecycle && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      plan.evaluationLifecycle === 'effective'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : plan.evaluationLifecycle === 'evaluating'
+                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                        : plan.evaluationLifecycle === 'ineffective'
+                        ? 'bg-rose-50 text-rose-800 border-rose-200'
+                        : 'bg-gray-50 text-gray-700 border-gray-200'
+                    }`}>
+                      Evaluation: {plan.evaluationLifecycle.toUpperCase()}
+                    </span>
+                  )}
                   {plan.status === 'Completed' && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
                       <CheckCircle2 className="w-3 h-3" />
@@ -91,10 +104,20 @@ export const InterventionsView: React.FC<InterventionsViewProps> = ({ onNavigate
                   {plan.action || plan.problem || (plan as any).description}
                 </p>
 
-                {/* Plain-language explanation */}
-                <div className="p-4 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] space-y-1">
-                  <div className="text-[11px] font-bold text-[#176FF5] uppercase tracking-wider">Cognitive Science Rationale:</div>
-                  <p className="text-xs text-[#607089] leading-relaxed">{plan.reason || plan.expectedOutcome || (plan as any).rationale}</p>
+                {/* Plain-language explanation & Evaluation Criteria */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] space-y-1">
+                    <div className="text-[10px] font-bold text-[#176FF5] uppercase tracking-wider">Cognitive Science Rationale</div>
+                    <p className="text-xs text-[#607089] leading-relaxed">{plan.reason || plan.expectedOutcome || (plan as any).rationale}</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-[#F8FAFD] border border-[rgba(24,60,110,0.06)] space-y-1">
+                    <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Measurement & Evaluation</div>
+                    <p className="text-xs text-[#607089] leading-relaxed">
+                      <span className="font-semibold text-[#10233F]">Success Metric:</span> {plan.successMetric || plan.expectedOutcome || 'Observed telemetry improvement'}<br />
+                      <span className="font-semibold text-[#10233F]">Evaluation Window:</span> {plan.evaluationWindow || 'Next practice evaluation cycle'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
