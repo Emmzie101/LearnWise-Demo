@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLearner } from '../context/LearnerContext';
 import { DIAGNOSTIC_QUESTIONS } from '../data/diagnosticQuestions';
 import { ConfidenceMeter } from '../components/ConfidenceMeter';
@@ -7,11 +7,11 @@ import {
   ArrowRight, 
   ArrowLeft, 
   CheckCircle2, 
-  Sparkles,
   Info,
   BookOpen,
   FlaskConical,
-  HelpCircle
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 interface DiagnosticViewProps {
@@ -52,35 +52,110 @@ const DIMENSION_EXPLANATIONS: Record<string, { title: string; simple: string }> 
 export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) => {
   const { 
     diagnosticResponses, 
-    submitDiagnosticResponse, 
-    completeDiagnostic 
+    commitQuestionResponse,
+    completeDiagnosticAsync,
   } = useLearner();
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [selectedOptionId, setSelectedOptionId] = useState<string>('');
   const [selectedConfidence, setSelectedConfidence] = useState<1 | 2 | 3 | 4 | 5>(3);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const questionStartTimeRef = useRef<number>(Date.now());
+  const hasResumedRef = useRef<boolean>(false);
 
   const currentQuestion = DIAGNOSTIC_QUESTIONS[currentIndex];
   const totalQuestions = DIAGNOSTIC_QUESTIONS.length;
   const progressPercent = Math.round(((currentIndex + 1) / totalQuestions) * 100);
 
+  // Directly derive committed state from committed diagnosticResponses ledger
   const existingResponse = diagnosticResponses.find(r => r.questionId === currentQuestion.id);
-  const selectedOptionId = existingResponse?.selectedOptionId || '';
+  const isCommitted = Boolean(existingResponse);
+
+  // Resume at first unanswered question on initial mount
+  useEffect(() => {
+    if (!hasResumedRef.current && diagnosticResponses.length > 0) {
+      const firstUnansweredIndex = DIAGNOSTIC_QUESTIONS.findIndex(
+        q => !diagnosticResponses.some(r => r.questionId === q.id)
+      );
+      if (firstUnansweredIndex > 0) {
+        setCurrentIndex(firstUnansweredIndex);
+      }
+      hasResumedRef.current = true;
+    }
+  }, [diagnosticResponses]);
+
+  // Synchronize draft state and reset timer whenever current question changes
+  useEffect(() => {
+    questionStartTimeRef.current = Date.now();
+    if (existingResponse) {
+      setSelectedOptionId(existingResponse.selectedOptionId);
+      setSelectedConfidence((existingResponse.confidenceRating as 1 | 2 | 3 | 4 | 5) ?? 3);
+    } else {
+      setSelectedOptionId('');
+      setSelectedConfidence(3);
+    }
+  }, [currentIndex, existingResponse]);
 
   const handleSelectOption = (optionId: string) => {
-    submitDiagnosticResponse({
-      questionId: currentQuestion.id,
-      selectedOptionId: optionId,
-      confidenceRating: selectedConfidence,
-      evidenceType: currentQuestion.isMiniPerformance ? 'performance' : currentQuestion.questionType === 'scenario' ? 'observed' : 'declared',
-    });
+    if (isCommitted) return; // Previously committed responses are immutable
+    setSelectedOptionId(optionId);
   };
 
-  const handleNext = () => {
-    if (currentIndex < totalQuestions - 1) {
+  const handleNext = async () => {
+    if (!selectedOptionId) return;
+
+    setSubmitError(null);
+
+    // If already committed to ledger and not final, simply advance without re-persisting
+    if (isCommitted && currentIndex < totalQuestions - 1) {
       setCurrentIndex(prev => prev + 1);
+      return;
+    }
+
+    const elapsedSeconds = Math.max(1, Math.round((Date.now() - questionStartTimeRef.current) / 1000));
+
+    const responsePayload = {
+      questionId: currentQuestion.id,
+      selectedOptionId,
+      confidenceRating: selectedConfidence,
+      responseTimeSeconds: elapsedSeconds,
+      evidenceType: (currentQuestion.isMiniPerformance 
+        ? 'performance' 
+        : currentQuestion.questionType === 'scenario' 
+          ? 'observed' 
+          : 'declared') as 'declared' | 'observed' | 'performance',
+    };
+
+    if (currentIndex < totalQuestions - 1) {
+      // Intermediate Question: MUST await persistence before advancing
+      setIsSubmitting(true);
+      try {
+        await commitQuestionResponse(responsePayload);
+        setCurrentIndex(prev => prev + 1);
+      } catch (err: any) {
+        console.error('[DiagnosticView] Error committing response:', err);
+        setSubmitError(err?.message || 'Failed to save question response. Please check your connection and try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
-      completeDiagnostic();
-      onComplete();
+      // Final Question: Complete Assessment & Persist Report using COMPLETE response set
+      setIsSubmitting(true);
+      try {
+        let updatedResponses: typeof diagnosticResponses | undefined;
+        if (!isCommitted) {
+          updatedResponses = await commitQuestionResponse(responsePayload);
+        }
+        await completeDiagnosticAsync(updatedResponses);
+        onComplete();
+      } catch (err: any) {
+        console.error('[DiagnosticView] Error completing assessment:', err);
+        setSubmitError(err?.message || 'Failed to finalize diagnostic assessment. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -130,6 +205,17 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
         </div>
       </div>
 
+      {/* Error alert if submission fails */}
+      {submitError && (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-xs">
+            <p className="font-bold">Assessment Synchronization Error</p>
+            <p>{submitError}</p>
+          </div>
+        </div>
+      )}
+
       {/* Main Diagnostic Question Card */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white border border-[#1769FF]/15 shadow-sm space-y-6">
         {/* Pillar Header with Simple Explanation + Evidence Tier */}
@@ -167,10 +253,25 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
           )}
         </div>
 
+        {/* Immutable Locked Banner if already committed */}
+        {isCommitted && (
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Response committed to learning profile ledger.</span>
+            </div>
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-200/60 px-2 py-0.5 rounded-md">
+              Locked
+            </span>
+          </div>
+        )}
+
         {/* Options List */}
         <div className="space-y-3 pt-1">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-            Select the option that most accurately describes your behavior:
+            {isCommitted 
+              ? 'Your recorded response:' 
+              : 'Select the option that most accurately describes your behavior:'}
           </div>
 
           {currentQuestion.options.map(option => {
@@ -178,11 +279,17 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
             return (
               <div
                 key={option.id}
-                onClick={() => handleSelectOption(option.id)}
-                className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#EAF2FF]/70 border-[#124BCE] ring-2 ring-[#1769FF]/20 shadow-2xs'
-                    : 'bg-white hover:bg-gray-50 border-gray-200 hover:border-[#1769FF]/30'
+                onClick={() => !isCommitted && handleSelectOption(option.id)}
+                className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                  isCommitted ? (
+                    isSelected 
+                      ? 'bg-[#EAF2FF]/70 border-[#124BCE] ring-2 ring-[#1769FF]/20 shadow-2xs cursor-default'
+                      : 'bg-gray-50/70 border-gray-200 opacity-50 cursor-not-allowed'
+                  ) : (
+                    isSelected
+                      ? 'bg-[#EAF2FF]/70 border-[#124BCE] ring-2 ring-[#1769FF]/20 shadow-2xs cursor-pointer'
+                      : 'bg-white hover:bg-gray-50 border-gray-200 hover:border-[#1769FF]/30 cursor-pointer'
+                  )
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -216,11 +323,14 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
           <div className="pt-4 border-t border-gray-100 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-gray-700">How certain are you in this answer / habit?</span>
-              <span className="text-[11px] text-gray-500">Calibrates your self-regulation index</span>
+              <span className="text-[11px] text-gray-500">
+                {isCommitted ? 'Saved calibration rating' : 'Calibrates your self-regulation index'}
+              </span>
             </div>
             <ConfidenceMeter
               value={selectedConfidence}
-              onChange={setSelectedConfidence}
+              onChange={isCommitted ? undefined : setSelectedConfidence}
+              readOnly={isCommitted}
             />
           </div>
         )}
@@ -245,9 +355,9 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
           <button
             type="button"
             onClick={handleBack}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 || isSubmitting}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold ${
-              currentIndex === 0 
+              currentIndex === 0 || isSubmitting
                 ? 'text-gray-300 cursor-not-allowed' 
                 : 'text-gray-600 hover:bg-gray-100 cursor-pointer'
             }`}
@@ -259,15 +369,24 @@ export const DiagnosticView: React.FC<DiagnosticViewProps> = ({ onComplete }) =>
           <button
             type="button"
             onClick={handleNext}
-            disabled={!selectedOptionId}
+            disabled={!selectedOptionId || isSubmitting}
             className={`flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              !selectedOptionId
+              !selectedOptionId || isSubmitting
                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 : 'bg-[#124BCE] hover:bg-[#1769FF] text-white shadow-sm shadow-[#124BCE]/20 cursor-pointer'
             }`}
           >
-            <span>{currentIndex === totalQuestions - 1 ? 'Generate My Diagnostic Report' : 'Next Question'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{currentIndex === totalQuestions - 1 ? 'Generating Report...' : 'Saving Response...'}</span>
+              </>
+            ) : (
+              <>
+                <span>{currentIndex === totalQuestions - 1 ? 'Generate My Diagnostic Report' : 'Next Question'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </div>
       </div>

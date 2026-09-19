@@ -35,17 +35,63 @@ export const DiagnosticResultsView: React.FC<DiagnosticResultsViewProps> = ({
   onRetake,
   onStartWalkthrough 
 }) => {
-  const { dimensions, risks, metrics, profile, diagnosticReport, resetDiagnostic } = useLearner();
+  const { 
+    dimensions, 
+    risks, 
+    metrics, 
+    profile, 
+    diagnosticReport, 
+    resetDiagnostic, 
+    retakeDiagnostic, 
+    isDemoAccount 
+  } = useLearner();
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'interventions' | 'pillars'>('overview');
+  const [isRetaking, setIsRetaking] = useState(false);
+
+  const handleRetakeClick = async () => {
+    setIsRetaking(true);
+    try {
+      await retakeDiagnostic();
+      onRetake();
+    } catch (err) {
+      console.error('[DiagnosticResultsView] Error starting retake:', err);
+      resetDiagnostic();
+      onRetake();
+    } finally {
+      setIsRetaking(false);
+    }
+  };
+
+  // If user is authenticated and has no completed diagnostic, show prompt to take it
+  if (!diagnosticReport && !isDemoAccount) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-6">
+        <div className="w-16 h-16 rounded-3xl bg-[#EAF2FF] text-[#124BCE] flex items-center justify-center mx-auto shadow-sm">
+          <BrainCircuit className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold font-heading text-[#071A3A]">
+            No Diagnostic Assessment Completed
+          </h2>
+          <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
+            Welcome, {profile.name || 'Learner'}! You haven't completed your baseline diagnostic yet. Complete the 18-question assessment to calibrate your PLSFR+ cognitive dimensions, identify learning bottlenecks, and unlock targeted study protocols.
+          </p>
+        </div>
+        <button
+          onClick={handleRetakeClick}
+          disabled={isRetaking}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-sm font-bold shadow-md transition-all cursor-pointer"
+        >
+          <span>Take Baseline Diagnostic</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   // Use the calculated report or fallback to demo report
   const report = diagnosticReport || DEFAULT_DEMO_REPORT;
-
-  const [activeTab, setActiveTab] = useState<'overview' | 'interventions' | 'pillars'>('overview');
-
-  const handleRetakeClick = () => {
-    resetDiagnostic();
-    onRetake();
-  };
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12">

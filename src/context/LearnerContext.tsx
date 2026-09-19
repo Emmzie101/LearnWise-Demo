@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   LearnerProfile, 
   LearningGoal, 
@@ -33,8 +33,69 @@ import {
 import { DIAGNOSTIC_QUESTIONS } from '../data/diagnosticQuestions';
 import { generateDiagnosticReport, DEFAULT_DEMO_REPORT } from '../utils/diagnosticEngine';
 import { useAuth } from './AuthContext';
+import { 
+  getLearnerProfile, 
+  saveLearnerProfile, 
+  getCurrentDimensions, 
+  upsertDimensions, 
+  getOrCreateActiveAssessment, 
+  getLatestCompletedReport, 
+  getAssessmentResponses, 
+  saveDiagnosticResponse, 
+  completeAssessment, 
+  abandonActiveAssessment,
+  saveDiagnosticReport
+} from '../services/diagnosticService';
 
-const STORAGE_KEY = 'learnwise_state_v1';
+const DEMO_STORAGE_KEY = 'learnwise_demo_v1';
+
+// Neutral, safe baselines for fresh authenticated learners (strictly avoids demo data leakage)
+export const DEFAULT_AUTHENTICATED_PROFILE: LearnerProfile = {
+  id: '',
+  name: '',
+  email: '',
+  educationLevel: 'University_Undergrad',
+  institution: '',
+  fieldOfStudy: '',
+  yearOfStudy: '',
+  availableHoursPerWeek: 6,
+  learningContext: [],
+};
+
+export const NEUTRAL_AUTHENTICATED_DIMENSIONS: PlsfrDimension[] = INITIAL_PLSFR_DIMENSIONS.map(d => ({
+  ...d,
+  score: 50,
+  strengthLevel: 'Emerging',
+  riskLevel: 'Moderate',
+  confidence: 50,
+  confidenceBand: 'Moderate',
+  evidenceCount: 0,
+  evidenceBreakdown: {
+    selfReportCount: 0,
+    scenarioCount: 0,
+    performanceCount: 0,
+    contradictions: [],
+  },
+}));
+
+function hasStoredSupabaseSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          if (parsed?.user || parsed?.access_token) return true;
+        }
+      }
+    }
+  } catch {
+    // Ignore storage parsing issues
+  }
+  return false;
+}
 
 interface AssimilationMetrics {
   capabilityGrowthScore: number; // 0-100
@@ -68,6 +129,7 @@ interface LearnerContextType {
   diagnosticReport: DiagnosticReport | null;
   metrics: AssimilationMetrics;
   nextBestAction: Recommendation | null;
+  activeAssessmentId: string | null;
 
   // Actions
   login: (email: string, name: string) => void;
@@ -77,8 +139,13 @@ interface LearnerContextType {
   setSelectedGoalId: (id: string) => void;
   updateProfile: (updates: Partial<LearnerProfile>) => void;
   submitDiagnosticResponse: (response: DiagnosticResponse) => void;
-  completeDiagnostic: () => void;
+  commitQuestionResponse: (response: DiagnosticResponse, overrideAssessmentId?: string) => Promise<DiagnosticResponse[]>;
+  completeDiagnostic: (explicitResponses?: DiagnosticResponse[]) => void;
+  completeDiagnosticAsync: (explicitResponses?: DiagnosticResponse[], overrideAssessmentId?: string) => Promise<DiagnosticReport>;
   resetDiagnostic: () => void;
+  retakeDiagnostic: () => Promise<void>;
+  setActiveAssessmentId: (id: string | null) => void;
+  refreshLearnerState: () => Promise<void>;
   createGoal: (goal: Omit<LearningGoal, 'id' | 'totalConceptsCount' | 'masteredConceptsCount'>) => void;
   captureConcept: (concept: Omit<Concept, 'id' | 'state' | 'recallSuccessCount' | 'recallFailureCount' | 'applicationSuccessCount' | 'applicationFailureCount' | 'reinforcementIntervalDays'>) => string;
   updateConceptState: (conceptId: string, newState: ConceptState) => void;
@@ -95,114 +162,180 @@ const LearnerContext = createContext<LearnerContextType | null>(null);
 export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, signOut: authSignOut } = useAuth();
 
-  // Initialize state from localStorage or demo defaults
+  // Differentiate demo mode vs authenticated mode strictly to prevent state leakage
+  const isInitialAuth = !!user || hasStoredSupabaseSession();
+  const isInitialDemo = !isInitialAuth && (typeof window !== 'undefined' && localStorage.getItem(`${DEMO_STORAGE_KEY}_is_demo`) === 'true');
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_auth`);
-    return saved !== null ? JSON.parse(saved) : true;
+    if (isInitialAuth) return true;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_auth`);
+      return saved !== null ? JSON.parse(saved) : true;
+    }
+    return false;
   });
 
   const [isDemoAccount, setIsDemoAccount] = useState<boolean>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_is_demo`);
-    return saved !== null ? JSON.parse(saved) : true;
+    return isInitialDemo;
   });
 
   const [profile, setProfile] = useState<LearnerProfile>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_profile`);
-    return saved ? JSON.parse(saved) : DEMO_LEARNER_PROFILE;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_profile`);
+      return saved ? JSON.parse(saved) : DEMO_LEARNER_PROFILE;
+    }
+    return {
+      ...DEFAULT_AUTHENTICATED_PROFILE,
+      id: user?.id || '',
+      email: user?.email || '',
+      name: (user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || '',
+    };
   });
 
   const [dimensions, setDimensions] = useState<PlsfrDimension[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_dimensions`);
-    return saved ? JSON.parse(saved) : INITIAL_PLSFR_DIMENSIONS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_dimensions`);
+      return saved ? JSON.parse(saved) : INITIAL_PLSFR_DIMENSIONS;
+    }
+    return NEUTRAL_AUTHENTICATED_DIMENSIONS;
   });
 
   const [goals, setGoals] = useState<LearningGoal[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_goals`);
-    return saved ? JSON.parse(saved) : DEMO_LEARNING_GOALS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_goals`);
+      return saved ? JSON.parse(saved) : DEMO_LEARNING_GOALS;
+    }
+    return [];
   });
 
   const [selectedGoalId, setSelectedGoalId] = useState<string>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_selected_goal`);
-    return saved ? JSON.parse(saved) : 'goal_dsa_01';
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_selected_goal`);
+      return saved ? JSON.parse(saved) : 'goal_dsa_01';
+    }
+    return '';
   });
 
   const [concepts, setConcepts] = useState<Concept[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_concepts`);
-    return saved ? JSON.parse(saved) : DEMO_CONCEPTS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_concepts`);
+      return saved ? JSON.parse(saved) : DEMO_CONCEPTS;
+    }
+    return [];
   });
 
   const [retrievalAttempts, setRetrievalAttempts] = useState<RetrievalAttempt[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_retrievals`);
-    return saved ? JSON.parse(saved) : DEMO_RETRIEVAL_ATTEMPTS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_retrievals`);
+      return saved ? JSON.parse(saved) : DEMO_RETRIEVAL_ATTEMPTS;
+    }
+    return [];
   });
 
   const [applicationAttempts, setApplicationAttempts] = useState<ApplicationAttempt[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_applications`);
-    return saved ? JSON.parse(saved) : DEMO_APPLICATION_ATTEMPTS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_applications`);
+      return saved ? JSON.parse(saved) : DEMO_APPLICATION_ATTEMPTS;
+    }
+    return [];
   });
 
   const [interventions, setInterventions] = useState<Intervention[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_interventions`);
-    return saved ? JSON.parse(saved) : DEMO_INTERVENTIONS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_interventions`);
+      return saved ? JSON.parse(saved) : DEMO_INTERVENTIONS;
+    }
+    return [];
   });
 
   const [recommendations, setRecommendations] = useState<Recommendation[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_recommendations`);
-    return saved ? JSON.parse(saved) : DEMO_RECOMMENDATIONS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_recommendations`);
+      return saved ? JSON.parse(saved) : DEMO_RECOMMENDATIONS;
+    }
+    return [];
   });
 
   const [reflections, setReflections] = useState<LearningReflection[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_reflections`);
-    return saved ? JSON.parse(saved) : DEMO_REFLECTIONS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_reflections`);
+      return saved ? JSON.parse(saved) : DEMO_REFLECTIONS;
+    }
+    return [];
   });
 
   const [risks, setRisks] = useState<LearningRiskSignal[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_risks`);
-    return saved ? JSON.parse(saved) : DEMO_LEARNING_RISKS;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_risks`);
+      return saved ? JSON.parse(saved) : DEMO_LEARNING_RISKS;
+    }
+    return [];
   });
 
   const [strategyPlan, setStrategyPlanState] = useState<LearningStrategyPlan | null>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_strategy`);
-    return saved ? JSON.parse(saved) : DEMO_STRATEGY_PLAN;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_strategy`);
+      return saved ? JSON.parse(saved) : DEMO_STRATEGY_PLAN;
+    }
+    return null;
   });
 
   const [diagnosticResponses, setDiagnosticResponses] = useState<DiagnosticResponse[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_diagnostic_res`);
-    return saved ? JSON.parse(saved) : [];
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_diagnostic_res`);
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
   });
 
   const [diagnosticCompleted, setDiagnosticCompleted] = useState<boolean>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_diagnostic_done`);
-    return saved ? JSON.parse(saved) : true;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_diagnostic_done`);
+      return saved !== null ? JSON.parse(saved) : true;
+    }
+    return false; // Authenticated users strictly default to false until a persisted report is loaded
   });
 
   const [diagnosticReport, setDiagnosticReport] = useState<DiagnosticReport | null>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_diagnostic_report`);
-    return saved ? JSON.parse(saved) : DEFAULT_DEMO_REPORT;
+    if (isInitialDemo) {
+      const saved = localStorage.getItem(`${DEMO_STORAGE_KEY}_diagnostic_report`);
+      return saved ? JSON.parse(saved) : DEFAULT_DEMO_REPORT;
+    }
+    return null; // Authenticated users strictly default to null until a persisted report is loaded
   });
 
-  // Save changes to localStorage
+  const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
+
+  // Synchronous ref to prevent stale response race conditions during report generation
+  const diagnosticResponsesRef = useRef<DiagnosticResponse[]>(diagnosticResponses);
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_auth`, JSON.stringify(isAuthenticated));
-    localStorage.setItem(`${STORAGE_KEY}_is_demo`, JSON.stringify(isDemoAccount));
-    localStorage.setItem(`${STORAGE_KEY}_profile`, JSON.stringify(profile));
-    localStorage.setItem(`${STORAGE_KEY}_dimensions`, JSON.stringify(dimensions));
-    localStorage.setItem(`${STORAGE_KEY}_goals`, JSON.stringify(goals));
-    localStorage.setItem(`${STORAGE_KEY}_selected_goal`, JSON.stringify(selectedGoalId));
-    localStorage.setItem(`${STORAGE_KEY}_concepts`, JSON.stringify(concepts));
-    localStorage.setItem(`${STORAGE_KEY}_retrievals`, JSON.stringify(retrievalAttempts));
-    localStorage.setItem(`${STORAGE_KEY}_applications`, JSON.stringify(applicationAttempts));
-    localStorage.setItem(`${STORAGE_KEY}_interventions`, JSON.stringify(interventions));
-    localStorage.setItem(`${STORAGE_KEY}_recommendations`, JSON.stringify(recommendations));
-    localStorage.setItem(`${STORAGE_KEY}_reflections`, JSON.stringify(reflections));
-    localStorage.setItem(`${STORAGE_KEY}_risks`, JSON.stringify(risks));
-    localStorage.setItem(`${STORAGE_KEY}_strategy`, JSON.stringify(strategyPlan));
-    localStorage.setItem(`${STORAGE_KEY}_diagnostic_res`, JSON.stringify(diagnosticResponses));
-    localStorage.setItem(`${STORAGE_KEY}_diagnostic_done`, JSON.stringify(diagnosticCompleted));
-    localStorage.setItem(`${STORAGE_KEY}_diagnostic_report`, JSON.stringify(diagnosticReport));
+    diagnosticResponsesRef.current = diagnosticResponses;
+  }, [diagnosticResponses]);
+
+  // Save changes ONLY if in demo mode (strict isolation)
+  useEffect(() => {
+    if (!isDemoAccount) return;
+
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_auth`, JSON.stringify(isAuthenticated));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_is_demo`, JSON.stringify(isDemoAccount));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_profile`, JSON.stringify(profile));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_dimensions`, JSON.stringify(dimensions));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_goals`, JSON.stringify(goals));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_selected_goal`, JSON.stringify(selectedGoalId));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_concepts`, JSON.stringify(concepts));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_retrievals`, JSON.stringify(retrievalAttempts));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_applications`, JSON.stringify(applicationAttempts));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_interventions`, JSON.stringify(interventions));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_recommendations`, JSON.stringify(recommendations));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_reflections`, JSON.stringify(reflections));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_risks`, JSON.stringify(risks));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_strategy`, JSON.stringify(strategyPlan));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_diagnostic_res`, JSON.stringify(diagnosticResponses));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_diagnostic_done`, JSON.stringify(diagnosticCompleted));
+    localStorage.setItem(`${DEMO_STORAGE_KEY}_diagnostic_report`, JSON.stringify(diagnosticReport));
   }, [
-    isAuthenticated,
     isDemoAccount,
+    isAuthenticated,
     profile,
     dimensions,
     goals,
@@ -341,21 +474,95 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [interventions]);
 
+  // Hydrate authenticated user state from Supabase
+  const refreshLearnerState = useCallback(async () => {
+    if (!user || isDemoAccount) return;
+    try {
+      // 1. Profile
+      const dbProfile = await getLearnerProfile(user.id);
+      if (dbProfile) {
+        setProfile({
+          ...dbProfile,
+          email: user.email || '',
+          name: dbProfile.name || (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || 'New Learner',
+        });
+      }
+
+      // 2. Dimensions
+      const dbDimensions = await getCurrentDimensions(user.id);
+      if (dbDimensions.length > 0) {
+        setDimensions(dbDimensions);
+      } else {
+        setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
+      }
+
+      // 3. Completed Diagnostic Report
+      const latestReport = await getLatestCompletedReport(user.id);
+      if (latestReport) {
+        setDiagnosticReport(latestReport);
+        setDiagnosticCompleted(true);
+      } else {
+        setDiagnosticReport(null);
+        setDiagnosticCompleted(false);
+      }
+
+      // 4. Active Assessment & Responses
+      const activeAssessment = await getOrCreateActiveAssessment(user.id);
+      if (activeAssessment) {
+        setActiveAssessmentId(activeAssessment.id);
+        const savedResponses = await getAssessmentResponses(activeAssessment.id, user.id);
+        setDiagnosticResponses(savedResponses);
+        diagnosticResponsesRef.current = savedResponses;
+      }
+    } catch (err) {
+      console.error('[LearnerContext] Error hydrating learner state:', err);
+    }
+  }, [user, isDemoAccount]);
+
   // Synchronize authenticated identity from Supabase Auth
   useEffect(() => {
+    let isMounted = true;
+
     if (user) {
       setIsDemoAccount(false);
       setIsAuthenticated(true);
-      setProfile(prev => ({
-        ...prev,
+      // Immediately reset to clean non-demo authenticated baseline so no demo data (Ada, etc.) leaks
+      setProfile({
+        ...DEFAULT_AUTHENTICATED_PROFILE,
         id: user.id,
-        email: user.email || prev.email,
-        name: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || (prev.name && prev.name !== DEMO_LEARNER_PROFILE.name ? prev.name : 'New Learner'),
-      }));
+        email: user.email || '',
+        name: (user.user_metadata?.name as string) || (user.user_metadata?.full_name as string) || '',
+      });
+      setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
+      setGoals([]);
+      setSelectedGoalId('');
+      setConcepts([]);
+      setRetrievalAttempts([]);
+      setApplicationAttempts([]);
+      setInterventions([]);
+      setRecommendations([]);
+      setReflections([]);
+      setRisks([]);
+      setStrategyPlanState(null);
+      setDiagnosticResponses([]);
+      diagnosticResponsesRef.current = [];
+      setDiagnosticReport(null);
+      setDiagnosticCompleted(false);
+
+      void refreshLearnerState();
     } else if (!isDemoAccount) {
       setIsAuthenticated(false);
+      setActiveAssessmentId(null);
+      setDiagnosticReport(null);
+      setDiagnosticCompleted(false);
+      setDiagnosticResponses([]);
+      diagnosticResponsesRef.current = [];
     }
-  }, [user]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, isDemoAccount, refreshLearnerState]);
 
   // Auth & Account handlers
   const login = (email: string, name: string) => {
@@ -370,6 +577,23 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     setIsAuthenticated(false);
     setIsDemoAccount(false);
+    setActiveAssessmentId(null);
+    setProfile(DEFAULT_AUTHENTICATED_PROFILE);
+    setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
+    setGoals([]);
+    setSelectedGoalId('');
+    setConcepts([]);
+    setRetrievalAttempts([]);
+    setApplicationAttempts([]);
+    setInterventions([]);
+    setRecommendations([]);
+    setReflections([]);
+    setRisks([]);
+    setStrategyPlanState(null);
+    setDiagnosticReport(null);
+    setDiagnosticCompleted(false);
+    setDiagnosticResponses([]);
+    diagnosticResponsesRef.current = [];
   };
 
   const loadDemoAccount = () => {
@@ -378,6 +602,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     setIsAuthenticated(true);
     setIsDemoAccount(true);
+    setActiveAssessmentId(null);
     setProfile(DEMO_LEARNER_PROFILE);
     setDimensions(INITIAL_PLSFR_DIMENSIONS);
     setGoals(DEMO_LEARNING_GOALS);
@@ -390,6 +615,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setReflections(DEMO_REFLECTIONS);
     setRisks(DEMO_LEARNING_RISKS);
     setStrategyPlanState(DEMO_STRATEGY_PLAN);
+    setDiagnosticResponses([]);
+    diagnosticResponsesRef.current = [];
     setDiagnosticReport(DEFAULT_DEMO_REPORT);
     setDiagnosticCompleted(true);
   };
@@ -397,18 +624,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const resetToFreshAccount = () => {
     setIsAuthenticated(user !== null);
     setIsDemoAccount(false);
+    setActiveAssessmentId(null);
     setProfile({
+      ...DEFAULT_AUTHENTICATED_PROFILE,
       id: user ? user.id : 'learner_fresh_' + Date.now(),
-      name: user?.user_metadata?.name || 'New Learner',
-      email: user?.email || 'student@learnwise.ng',
-      educationLevel: 'University_Undergrad',
-      institution: 'University / Secondary School',
-      fieldOfStudy: 'General Studies',
-      yearOfStudy: 'Year 1',
-      availableHoursPerWeek: 6,
-      learningContext: ['Mobile-first', 'Hostel study'],
+      name: (user?.user_metadata?.name as string) || (user?.user_metadata?.full_name as string) || 'New Learner',
+      email: user?.email || '',
     });
-    setDimensions(INITIAL_PLSFR_DIMENSIONS.map(d => ({ ...d, score: 50, strengthLevel: 'Emerging', evidenceCount: 0 })));
+    setDimensions(NEUTRAL_AUTHENTICATED_DIMENSIONS);
     setGoals([]);
     setSelectedGoalId('');
     setConcepts([]);
@@ -420,32 +643,128 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setRisks([]);
     setStrategyPlanState(null);
     setDiagnosticResponses([]);
+    diagnosticResponsesRef.current = [];
     setDiagnosticReport(null);
     setDiagnosticCompleted(false);
   };
 
   const updateProfile = (updates: Partial<LearnerProfile>) => {
     setProfile(prev => ({ ...prev, ...updates }));
+    if (user && !isDemoAccount) {
+      saveLearnerProfile(user.id, updates).catch(err => {
+        console.error('[LearnerContext] Failed to persist profile updates:', err);
+      });
+    }
   };
 
   const submitDiagnosticResponse = (response: DiagnosticResponse) => {
     setDiagnosticResponses(prev => {
       const filtered = prev.filter(r => r.questionId !== response.questionId);
-      return [...filtered, response];
+      const updated = [...filtered, response];
+      diagnosticResponsesRef.current = updated;
+      return updated;
     });
   };
 
-  const completeDiagnostic = () => {
+  const commitQuestionResponse = async (
+    response: DiagnosticResponse, 
+    overrideAssessmentId?: string
+  ): Promise<DiagnosticResponse[]> => {
+    // 1. If authenticated, persist to Supabase first; failures throw before updating committed ledger
+    if (user && !isDemoAccount) {
+      let targetAssessmentId = overrideAssessmentId || activeAssessmentId;
+      if (!targetAssessmentId) {
+        const assessment = await getOrCreateActiveAssessment(user.id);
+        targetAssessmentId = assessment.id;
+        setActiveAssessmentId(assessment.id);
+      }
+      await saveDiagnosticResponse({
+        assessmentId: targetAssessmentId,
+        userId: user.id,
+        response,
+      });
+    }
+
+    // 2. Only after successful persistence (or in local demo mode), commit to response ledger
+    const currentList = diagnosticResponsesRef.current;
+    const filtered = currentList.filter(r => r.questionId !== response.questionId);
+    const updatedResponses = [...filtered, response];
+    diagnosticResponsesRef.current = updatedResponses;
+    setDiagnosticResponses(updatedResponses);
+
+    return updatedResponses;
+  };
+
+  const completeDiagnostic = (explicitResponses?: DiagnosticResponse[]) => {
     // Generate triangulated PLSFR+ diagnostic report with auditable rules, confidence bands, & interventions
-    const result = generateDiagnosticReport(diagnosticResponses, dimensions, profile);
+    const responsesToEvaluate = explicitResponses && explicitResponses.length > 0
+      ? explicitResponses
+      : diagnosticResponsesRef.current;
+    const result = generateDiagnosticReport(responsesToEvaluate, dimensions, profile);
     setDimensions(result.updatedDimensions);
     setDiagnosticReport(result.report);
     setInterventions(result.initialInterventions);
     setDiagnosticCompleted(true);
   };
 
+  const completeDiagnosticAsync = async (
+    explicitResponses?: DiagnosticResponse[],
+    overrideAssessmentId?: string
+  ): Promise<DiagnosticReport> => {
+    const targetAssessmentId = overrideAssessmentId || activeAssessmentId;
+    const responsesToEvaluate = explicitResponses && explicitResponses.length > 0
+      ? explicitResponses
+      : diagnosticResponsesRef.current;
+
+    // 1. Generate final report from COMPLETE response set
+    const result = generateDiagnosticReport(responsesToEvaluate, dimensions, profile);
+
+    if (user && !isDemoAccount) {
+      let assessmentId = targetAssessmentId;
+      if (!assessmentId) {
+        const active = await getOrCreateActiveAssessment(user.id);
+        assessmentId = active.id;
+        setActiveAssessmentId(active.id);
+      }
+
+      // 2. Persist diagnostic_reports (idempotent: safe on retry)
+      await saveDiagnosticReport({
+        assessmentId,
+        userId: user.id,
+        report: result.report,
+        dimensionsSnapshot: result.updatedDimensions,
+      });
+
+      // 3. Upsert seven plsfr_dimensions
+      await upsertDimensions(user.id, result.updatedDimensions);
+
+      // 4. Mark diagnostic_assessment completed
+      await completeAssessment(assessmentId, user.id);
+    }
+
+    // 5. Update React state
+    setDimensions(result.updatedDimensions);
+    setDiagnosticReport(result.report);
+    setInterventions(result.initialInterventions);
+    setDiagnosticCompleted(true);
+
+    return result.report;
+  };
+
   const resetDiagnostic = () => {
     setDiagnosticResponses([]);
+    diagnosticResponsesRef.current = [];
+    setDiagnosticCompleted(false);
+  };
+
+  const retakeDiagnostic = async () => {
+    if (user && !isDemoAccount) {
+      await abandonActiveAssessment(user.id);
+      const newAssessment = await getOrCreateActiveAssessment(user.id);
+      setActiveAssessmentId(newAssessment.id);
+    }
+    setDiagnosticResponses([]);
+    diagnosticResponsesRef.current = [];
     setDiagnosticCompleted(false);
   };
 
@@ -641,6 +960,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         diagnosticReport,
         metrics,
         nextBestAction,
+        activeAssessmentId,
         login,
         logout,
         loadDemoAccount,
@@ -648,8 +968,13 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedGoalId,
         updateProfile,
         submitDiagnosticResponse,
+        commitQuestionResponse,
         completeDiagnostic,
+        completeDiagnosticAsync,
         resetDiagnostic,
+        retakeDiagnostic,
+        setActiveAssessmentId,
+        refreshLearnerState,
         createGoal,
         captureConcept,
         updateConceptState,

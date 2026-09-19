@@ -22,32 +22,56 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
   const { profile, updateProfile, isDemoAccount, loadDemoAccount, resetToFreshAccount } = useLearner();
   const { user } = useAuth();
 
-  const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email);
-  const [institution, setInstitution] = useState(profile.institution);
-  const [fieldOfStudy, setFieldOfStudy] = useState(profile.fieldOfStudy);
-  const [educationLevel, setEducationLevel] = useState(profile.educationLevel);
-  const [studyContext, setStudyContext] = useState(profile.studyContext);
-  const [primaryDevice, setPrimaryDevice] = useState(profile.primaryDevice);
-  const [internetReliability, setInternetReliability] = useState(profile.internetReliability);
-  const [electricityAccess, setElectricityAccess] = useState(profile.electricityAccess);
+  const [name, setName] = useState(profile.name || '');
+  const [email, setEmail] = useState(profile.email || '');
+  const [institution, setInstitution] = useState(profile.institution || '');
+  const [fieldOfStudy, setFieldOfStudy] = useState(profile.fieldOfStudy || '');
+  const [educationLevel, setEducationLevel] = useState(profile.educationLevel || 'University_Undergrad');
+  const [studyContext, setStudyContext] = useState(profile.studyContext || 'Hostel Room');
+  const [primaryDevice, setPrimaryDevice] = useState(profile.primaryDevice || 'Android Smartphone');
+  const [internetReliability, setInternetReliability] = useState(profile.internetReliability || 'Intermittent 4G');
+  const [electricityAccess, setElectricityAccess] = useState(profile.electricityAccess || '4-8 Hours / Day');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Synchronize form state when profile hydrations complete
+  React.useEffect(() => {
+    setName(profile.name || '');
+    setEmail(profile.email || '');
+    setInstitution(profile.institution || '');
+    setFieldOfStudy(profile.fieldOfStudy || '');
+    setEducationLevel(profile.educationLevel || 'University_Undergrad');
+    if (profile.studyContext) setStudyContext(profile.studyContext);
+    if (profile.primaryDevice) setPrimaryDevice(profile.primaryDevice);
+    if (profile.internetReliability) setInternetReliability(profile.internetReliability);
+    if (profile.electricityAccess) setElectricityAccess(profile.electricityAccess);
+  }, [profile]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      name,
-      email: user ? (user.email || profile.email) : email,
-      institution,
-      fieldOfStudy,
-      educationLevel,
-      studyContext,
-      primaryDevice,
-      internetReliability,
-      electricityAccess,
-    });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await updateProfile({
+        name,
+        email: user ? (user.email || profile.email) : email,
+        institution,
+        fieldOfStudy,
+        educationLevel,
+        studyContext,
+        primaryDevice,
+        internetReliability,
+        electricityAccess,
+      });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err: any) {
+      console.error('[ProfileView] Error saving profile:', err);
+      setSaveError(err?.message || 'Failed to save profile changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -225,20 +249,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2">
-          {savedSuccess ? (
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4" /> Parameters Updated Successfully
-            </span>
-          ) : <span />}
+        <div className="space-y-3 pt-2">
+          {saveError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+              {saveError}
+            </div>
+          )}
 
-          <button
-            type="submit"
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#124BCE] hover:bg-[#1769FF] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
-          >
-            <Save className="w-4 h-4" />
-            <span>Save Profile Parameters</span>
-          </button>
+          <div className="flex items-center justify-between">
+            {savedSuccess ? (
+              <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> Parameters Updated Successfully
+              </span>
+            ) : <span />}
+
+            <button
+              type="submit"
+              disabled={isSaving}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-xs font-bold shadow-md transition-all ${
+                isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#124BCE] hover:bg-[#1769FF] cursor-pointer'
+              }`}
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSaving ? 'Saving...' : 'Save Profile Parameters'}</span>
+            </button>
+          </div>
         </div>
       </form>
     </div>

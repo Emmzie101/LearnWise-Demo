@@ -151,6 +151,9 @@ export interface DiagnosticReport {
     tagline: string;
     whyThisRole: string;
   }[];
+  id?: string;
+  assessmentId?: string;
+  dimensionScoresSnapshot?: PlsfrDimension[];
 }
 
 export interface LearnerProfile {
@@ -164,6 +167,10 @@ export interface LearnerProfile {
   availableHoursPerWeek: number;
   learningContext: string[]; // e.g., 'Hostel study', 'Inconsistent power', 'Mobile phone'
   targetExam?: string; // WAEC, JAMB, University Semesters
+  studyContext?: string;
+  primaryDevice?: string;
+  internetReliability?: string;
+  electricityAccess?: string;
 }
 
 export type GoalType = 
